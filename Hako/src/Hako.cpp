@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <algorithm>
+#include <iostream>
 
 using namespace hako;
 
@@ -17,16 +18,39 @@ void Hako::SetFileIO(FileFactorySignature a_FileFactory)
 }
 
 #ifndef HAKO_READ_ONLY
-bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName)
+bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName, bool a_OverwriteExistingFile)
 {
     Hako& instance = GetInstance();
 
     // TODO: Sort a_FileNames alphabetically
 
+    if (!a_OverwriteExistingFile)
+    {
+        // Check if the file already exists
+        if (instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read) != nullptr)
+        {
+            // The file already exists
+#ifndef HAKO_STANDALONE
+            return false;
+#else
+            char response = 0;
+            std::cout << "The file " << a_ArchiveName << " already exists. Overwrite?" << std::endl << "(Y/N): ";
+            std::cin >> response;
+            if (response != 'Y' && response != 'y')
+            {
+                std::cout << "Not creating archive " << a_ArchiveName << " as the file already exists" << std::endl;
+                return false;
+            }
+            std::cout << "Overwriting existing archive " << a_ArchiveName << std::endl;
+#endif
+        }
+    }
+
     std::unique_ptr<IFile> archive = instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::WriteTruncate);
     if (archive == nullptr)
     {
-        assert(archive == nullptr && "Unable to open archive for writing!");
+        std::cout << "Unable to open archive " << a_ArchiveName << " for writing!" << std::endl;
+        assert(archive == nullptr);
         return false;
     }
 
@@ -71,7 +95,8 @@ bool Hako::OpenArchive(const std::string& a_ArchiveName)
     instance.m_ArchiveReader = instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read);
     if (instance.m_ArchiveReader == nullptr)
     {
-        assert(instance.m_ArchiveReader == nullptr && "Unable to open archive for reading!");
+        std::cout << "Unable to open archive " << a_ArchiveName << " for reading!" << std::endl;
+        assert(instance.m_ArchiveReader == nullptr);
         return false;
     }
 
@@ -112,7 +137,8 @@ const std::vector<char>* Hako::ReadFile(const std::string& a_FileName)
     const FileInfo* fi = instance.GetFileInfo(a_FileName);
     if (fi == nullptr)
     {
-        assert(fi == nullptr && "Unable to find file in archive");
+        std::cout << "Unable to find file " << a_FileName << " in archive." << std::endl;
+        assert(fi == nullptr);
         return nullptr;
     }
 
@@ -147,7 +173,8 @@ void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, siz
 
     if (!a_Archive->Write(a_WriteOffset, buffer))
     {
-        assert(false && "Error while writing to the archive!");
+        std::cout << "Error while writing to the archive!" << std::endl;
+        assert(false);
     }
 }
 #endif
@@ -211,7 +238,8 @@ size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset,
 
         if (!file->Read(bytesToRead, bytesRead, data))
         {
-            assert(false);
+            std::cout << "Unable to serialize file " << a_FileName << std::endl;
+            return 0;
         }
         bytesRead += bytesToRead;
 

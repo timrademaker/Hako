@@ -48,9 +48,10 @@ namespace hako
          * Create an archive
          * @param a_FileNames The names of the files to put into the archive
          * @param a_ArchiveName The name of the archive to output
+         * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
          * @return True if the archive was created successfully
          */
-        static bool CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName);
+        static bool CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName, bool a_OverwriteExistingFile = false);
 #endif
 
         /**

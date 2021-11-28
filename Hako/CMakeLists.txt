@@ -17,6 +17,10 @@ set(SOURCES
     src/HakoFile.cpp
 )
 
+if(HAKO_STANDALONE)
+	add_compile_definitions("HAKO_STANDALONE")
+endif(HAKO_STANDALOE)
+
 # Create library for Hako
 add_library(Hako EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})
 
