@@ -19,7 +19,11 @@ set(SOURCES
 
 if(HAKO_STANDALONE)
 	add_compile_definitions("HAKO_STANDALONE")
-endif(HAKO_STANDALOE)
+endif(HAKO_STANDALONE)
+
+if(HAKO_READ_OUTSIDE_OF_ARCHIVE)
+    add_compile_definitions("HAKO_READ_OUTSIDE_OF_ARCHIVE")
+endif(HAKO_READ_OUTSIDE_OF_ARCHIVE)
 
 # Create library for Hako
 add_library(Hako EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})

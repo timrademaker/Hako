@@ -36,4 +36,4 @@ if(HAKO_STANDALONE)
 	add_executable (HakoContentPacker "main.cpp")
 
 	target_link_libraries(HakoContentPacker PRIVATE Hako)
-endif(HAKO_STANDALOE)
+endif(HAKO_STANDALONE)

@@ -135,7 +135,24 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 {
     Hako& instance = GetInstance();
 
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+    const std::vector<char>* outsideData = instance.ReadFileOutsideArchive(a_FileName);
+    if (outsideData != nullptr)
+    {
+        return outsideData;
+    }
+#endif
+
     // Check if the file has already been read
+    {
+        const auto openedFile = instance.m_OpenedFiles.find(a_FileName);
+        if (openedFile != instance.m_OpenedFiles.end())
+        {
+            return &openedFile->second;
+        }
+    }
+
+    // Add a new entry for this file
     std::vector<char>& data = instance.m_OpenedFiles[a_FileName];
     if (data.size() != 0)
     {
@@ -204,17 +221,7 @@ const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 
 size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const
 {
-    IFileSerializer* serializer = nullptr;
-
-    // Find serializer for this file
-    for (auto iter = m_FileSerializers.begin(); iter != m_FileSerializers.end(); ++iter)
-    {
-        if ((*iter)->ShouldHandleFile(a_FileInfo.m_Name))
-        {
-            serializer = iter->get();
-            break;
-        }
-    }
+    IFileSerializer* serializer = GetSerializerForFile(a_FileInfo.m_Name);
 
     if (serializer != nullptr)
     {
@@ -228,6 +235,23 @@ size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const
     {
         return DefaultSerializeFile(a_Archive, a_FileInfo.m_Offset, a_FileInfo.m_Name);
     }
+}
+
+IFileSerializer* Hako::GetSerializerForFile(const FileName_t& a_FileName) const
+{
+    IFileSerializer* serializer = nullptr;
+
+    // Find serializer for this file
+    for (auto iter = m_FileSerializers.begin(); iter != m_FileSerializers.end(); ++iter)
+    {
+        if ((*iter)->ShouldHandleFile(a_FileName))
+        {
+            serializer = iter->get();
+            break;
+        }
+    }
+    
+    return serializer;
 }
 
 size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const
@@ -257,3 +281,53 @@ size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset,
 
     return fileSize;
 }
+
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileName)
+{
+    // Check if the file has already been opened
+    {
+        const auto openedFile = m_OpenedFilesOutsideArchive.find(a_FileName);
+        if (openedFile != m_OpenedFilesOutsideArchive.end())
+        {
+            return &openedFile->second;
+        }
+    }
+
+    // Try to open the file
+    std::unique_ptr<IFile> file = m_FileFactory(a_FileName, IFile::FileOpenMode::Read);
+
+    if (file == nullptr)
+    {
+        // File doesn't exist outside of the archive, or it can't be opened
+        return nullptr;
+    }
+
+    std::vector<char>& data = m_OpenedFilesOutsideArchive[a_FileName];
+    
+    // Serialize file
+    IFileSerializer* serializer = GetSerializerForFile(a_FileName);
+    if (serializer != nullptr)
+    {
+        // Close the file to prevent possible issues
+        file = nullptr;
+
+        const size_t serializedByteCount = serializer->SerializeFile(a_FileName, data);
+        data.resize(serializedByteCount);
+        return &data;
+    }
+    else
+    {
+        const size_t fileSize = file->GetFileSize();
+        data.resize(fileSize);
+
+        // Read file content
+        if (file->Read(fileSize, 0, data))
+        {
+            return &data;
+        }
+    }
+
+    return nullptr;
+}
+#endif

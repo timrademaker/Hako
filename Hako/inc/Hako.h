@@ -109,6 +109,13 @@ namespace hako
         size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const;
 
         /**
+         * Get the serializer to use for a file
+         * @param a_FileName The file that needs to be serialized
+         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
+         */
+        IFileSerializer* GetSerializerForFile(const FileName_t& a_FileName) const;
+
+        /**
          * If no serializer can be found for a certain file, simply copy its content to the archive
          * @param a_Archive The archive to serialize to
          * @param a_ArchiveWriteOffset The offset in the archive at which to start writing
@@ -116,6 +123,15 @@ namespace hako
          * @return The number of bytes written
          */
         size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const;
+
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+        /**
+         * Read a file outside of the archive as if it was placed inside the archive.
+         * @param a_FileName The file to read
+         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
+         */
+        const std::vector<char>* ReadFileOutsideArchive(const FileName_t& a_FileName);
+#endif
 
 
     private:
@@ -128,6 +144,11 @@ namespace hako
         FileFactorySignature m_FileFactory = nullptr;
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
+
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+        /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
+        std::map<FileName_t, std::vector<char>> m_OpenedFilesOutsideArchive;
+#endif
     };
 
 #ifndef HAKO_READ_ONLY
