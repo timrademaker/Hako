@@ -31,7 +31,9 @@ endif(MSVC)
 # Include sub-folders
 add_subdirectory("Hako")
 
-# Add source to this project's executable.
-add_executable (HakoContentPacker "main.cpp")
+if(HAKO_STANDALONE)
+	# Add source to this project's executable.
+	add_executable (HakoContentPacker "main.cpp")
 
-target_link_libraries(HakoContentPacker PRIVATE Hako)
+	target_link_libraries(HakoContentPacker PRIVATE Hako)
+endif(HAKO_STANDALOE)
