@@ -70,9 +70,15 @@ namespace hako
         /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
+         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
          */
         static const std::vector<char>* ReadFile(const FileName_t& a_FileName);
+
+        /**
+         * Close a file that has been read from the archive to free memory
+         * @param a_FileName The file to close
+         */
+        static const void CloseFile(const FileName_t& a_FileName);
 
     private:
         Hako();

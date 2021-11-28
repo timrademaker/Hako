@@ -177,6 +177,16 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
     return nullptr;
 }
 
+const void Hako::CloseFile(const FileName_t& a_FileName)
+{
+    Hako& instance = GetInstance();
+
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+    instance.m_OpenedFilesOutsideArchive.erase(a_FileName);
+#endif
+    instance.m_OpenedFiles.erase(a_FileName);
+}
+
 Hako& Hako::GetInstance()
 {
     static Hako instance;
