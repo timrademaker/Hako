@@ -7,7 +7,7 @@ HakoFile::~HakoFile()
 	CloseFile();
 }
 
-bool hako::HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
+bool HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
 {
 	int openFlags = 0;
 	if (a_FileOpenMode == IFile::FileOpenMode::Read)
@@ -45,14 +45,12 @@ size_t HakoFile::GetFileSize()
 	return m_FileHandle->tellg();
 }
 
-#ifndef HAKO_READ_ONLY
 bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)
 {
 	m_FileHandle->seekp(a_Offset, std::ios_base::beg);
 	m_FileHandle->write(a_Data.data(), a_Data.size());
 	return !m_FileHandle->fail();
 }
-#endif
 
 void HakoFile::CloseFile()
 {

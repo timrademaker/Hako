@@ -48,7 +48,6 @@ namespace hako
         static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, bool>::type
             AddSerializer();
 
-#ifndef HAKO_READ_ONLY
         /**
          * Create an archive
          * @param a_FileNames The names of the files to put into the archive
@@ -57,7 +56,6 @@ namespace hako
          * @return True if the archive was created successfully
          */
         static bool CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
-#endif
 
         /**
          * Open an archive for reading
@@ -80,7 +78,6 @@ namespace hako
         const void CloseFile(const FileName_t& a_FileName);
 
     private:
-#ifndef HAKO_READ_ONLY
         /**
          * Write data to the archive
          * @param a_Archive The opened archive to write to
@@ -89,7 +86,6 @@ namespace hako
          * @param a_WriteOffset The offset at which to write to the archive
          */
         static void WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset);
-#endif
 
         /**
          * Get the FileInfo for a specific file
@@ -122,14 +118,12 @@ namespace hako
          */
         static size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName);
 
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
         /**
          * Read a file outside of the archive as if it was placed inside the archive.
          * @param a_FileName The file to read
          * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
          */
         const std::vector<char>* ReadFileOutsideArchive(const FileName_t& a_FileName);
-#endif
 
 
     private:
@@ -140,15 +134,13 @@ namespace hako
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
 
+        /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
+        std::map<FileName_t, std::vector<char>> m_OpenedFilesOutsideArchive;
+
         /** All file serializers provided by the user */
         static std::vector<std::unique_ptr<IFileSerializer>> s_FileSerializers;
         /** The factory function to use for file IO */
         static FileFactorySignature s_FileFactory;
-
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-        /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
-        std::map<FileName_t, std::vector<char>> m_OpenedFilesOutsideArchive;
-#endif
     };
 
     template<typename Serializer>

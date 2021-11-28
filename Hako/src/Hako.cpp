@@ -14,7 +14,6 @@ void Hako::SetFileIO(FileFactorySignature a_FileFactory)
     s_FileFactory = a_FileFactory;
 }
 
-#ifndef HAKO_READ_ONLY
 bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile)
 {
     // TODO: Sort a_FileNames alphabetically
@@ -78,12 +77,14 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
 
     return true;
 }
-#endif
 
 bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
 {
     m_OpenedFiles.clear();
     m_FilesInArchive.clear();
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+    m_OpenedFilesOutsideArchive.clear();
+#endif
     
     // Open archive
     m_ArchiveReader = s_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read);
@@ -169,7 +170,6 @@ const void Hako::CloseFile(const FileName_t& a_FileName)
     m_OpenedFiles.erase(a_FileName);
 }
 
-#ifndef HAKO_READ_ONLY
 void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset)
 {
     std::vector<char> buffer(a_NumBytes, 0);
@@ -188,7 +188,6 @@ void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, siz
         assert(false);
     }
 }
-#endif
 
 const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 {
@@ -268,16 +267,13 @@ size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset,
     return fileSize;
 }
 
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
 const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileName)
 {
     // Check if the file has already been opened
+    const auto openedFile = m_OpenedFilesOutsideArchive.find(a_FileName);
+    if (openedFile != m_OpenedFilesOutsideArchive.end())
     {
-        const auto openedFile = m_OpenedFilesOutsideArchive.find(a_FileName);
-        if (openedFile != m_OpenedFilesOutsideArchive.end())
-        {
-            return &openedFile->second;
-        }
+        return &openedFile->second;
     }
 
     // Try to open the file
@@ -316,4 +312,3 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
 
     return nullptr;
 }
-#endif

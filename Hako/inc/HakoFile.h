@@ -15,10 +15,8 @@ namespace hako
         bool Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode);
 
         virtual bool Read(size_t a_NumBytes, size_t a_Offset, std::vector<char>& a_Buffer) override;
-        virtual size_t GetFileSize() override;
-#ifndef HAKO_READ_ONLY
         virtual bool Write(size_t a_Offset, const std::vector<char>& a_Data) override;
-#endif
+        virtual size_t GetFileSize() override;
 
     private:
         void CloseFile();
