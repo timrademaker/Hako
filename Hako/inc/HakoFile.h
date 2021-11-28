@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IFile.h"
-#include "Hako.h"
 
 #include <fstream>
 #include <iosfwd>
