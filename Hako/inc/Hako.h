@@ -129,3 +129,7 @@ namespace hako
     }
 #endif
 }
+
+// Macro to register serializer classes in namespace scope
+#define HAKO_ADD_SERIALIZER(SerializerClass) namespace hako { \
+    extern bool addedSerializer = Hako::AddSerializer<SerializerClass>(); }
