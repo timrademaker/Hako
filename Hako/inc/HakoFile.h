@@ -3,7 +3,6 @@
 #include "IFile.h"
 
 #include <fstream>
-#include <iosfwd>
 
 namespace hako
 {
@@ -23,7 +22,7 @@ namespace hako
         void CloseFile();
 
     private:
-        std::fstream* m_FileHandle;
+        std::unique_ptr<std::fstream> m_FileHandle;
     };
 
     std::unique_ptr<IFile> HakoFileFactory(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode);

@@ -20,18 +20,12 @@ HakoFile::HakoFile(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpen
 
 	openFlags |= std::ios::binary;
 
-	m_FileHandle = new std::fstream(a_FilePath, openFlags);
-
-	if (!m_FileHandle->is_open())
-	{
-		printf("");
-	}
+	m_FileHandle = std::make_unique<std::fstream>(a_FilePath, openFlags);
 }
 
 HakoFile::~HakoFile()
 {
 	CloseFile();
-	delete m_FileHandle;
 }
 
 bool HakoFile::Read(size_t a_NumBytes, size_t a_Offset, std::vector<char>& a_Buffer)
@@ -60,9 +54,12 @@ bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)
 
 void HakoFile::CloseFile()
 {
-	if (m_FileHandle->is_open())
+	if (m_FileHandle != nullptr)
 	{
-		m_FileHandle->close();
+		if (m_FileHandle->is_open())
+		{
+			m_FileHandle->close();
+		}
 	}
 }
 
