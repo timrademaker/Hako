@@ -221,6 +221,3 @@ size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset,
 
     return fileSize;
 }
-
-// Throwaway variable for static initialization of serializers added with HAKO_ADD_SERIALIZER
-bool addedSerializer = false;
