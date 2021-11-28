@@ -31,13 +31,15 @@ namespace hako
         };
 
     public:
+        Hako() = default;
+        ~Hako() = default;
+
         /**
          * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file couldn't be opened
          * @param a_FileFactory A file factory with a signature like std::unique_ptr<IFile> OpenFile(const Hako::FileName_t& a_FilePath, FileOpenMode a_FileOpenMode)
          */
         static void SetFileIO(FileFactorySignature a_FileFactory);
 
-#ifndef HAKO_READ_ONLY
         /**
          * Add a serializer to the content packer
          * The serializer should inherit from IFileSerializer
@@ -46,6 +48,7 @@ namespace hako
         static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, bool>::type
             AddSerializer();
 
+#ifndef HAKO_READ_ONLY
         /**
          * Create an archive
          * @param a_FileNames The names of the files to put into the archive
@@ -61,33 +64,22 @@ namespace hako
          * @param a_ArchiveName The name of the archive to open
          * @return True if the archive was opened successfully
          */
-        static bool OpenArchive(const FileName_t& a_ArchiveName);
-        /**
-         * Close the currently opened archive
-         */
-        static void CloseArchive();
+        bool OpenArchive(const FileName_t& a_ArchiveName);
 
         /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
          * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
          */
-        static const std::vector<char>* ReadFile(const FileName_t& a_FileName);
+        const std::vector<char>* ReadFile(const FileName_t& a_FileName);
 
         /**
          * Close a file that has been read from the archive to free memory
          * @param a_FileName The file to close
          */
-        static const void CloseFile(const FileName_t& a_FileName);
+        const void CloseFile(const FileName_t& a_FileName);
 
     private:
-        Hako();
-        Hako(const Hako&) = delete;
-        Hako(Hako&) = delete;
-        ~Hako() = default;
-
-        static Hako& GetInstance();
-
 #ifndef HAKO_READ_ONLY
         /**
          * Write data to the archive
@@ -96,7 +88,7 @@ namespace hako
          * @param a_NumBytes The number of bytes to write to the archive
          * @param a_WriteOffset The offset at which to write to the archive
          */
-        void WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset) const;
+        static void WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset);
 #endif
 
         /**
@@ -112,14 +104,14 @@ namespace hako
          * @param a_FileInfo File info for the file that should be serialized into the archive
          * @return The number of bytes written
          */
-        size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const;
+        static size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo);
 
         /**
          * Get the serializer to use for a file
          * @param a_FileName The file that needs to be serialized
          * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
          */
-        IFileSerializer* GetSerializerForFile(const FileName_t& a_FileName) const;
+        static IFileSerializer* GetSerializerForFile(const FileName_t& a_FileName);
 
         /**
          * If no serializer can be found for a certain file, simply copy its content to the archive
@@ -128,7 +120,7 @@ namespace hako
          * @param a_FileName The file to serialize
          * @return The number of bytes written
          */
-        size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const;
+        static size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName);
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
         /**
@@ -141,15 +133,17 @@ namespace hako
 
 
     private:
-        /** All file serializers provided by the user */
-        std::vector<std::unique_ptr<IFileSerializer>> m_FileSerializers;
         /** Info on all files present in the archive opened with OpenArchive() */
         std::vector<FileInfo> m_FilesInArchive;
         /** All files that have already been opened with ReadFile() */
         std::map<FileName_t, std::vector<char>> m_OpenedFiles;
-        FileFactorySignature m_FileFactory = nullptr;
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
+
+        /** All file serializers provided by the user */
+        static std::vector<std::unique_ptr<IFileSerializer>> s_FileSerializers;
+        /** The factory function to use for file IO */
+        static FileFactorySignature s_FileFactory;
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
         /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
@@ -157,15 +151,13 @@ namespace hako
 #endif
     };
 
-#ifndef HAKO_READ_ONLY
     template<typename Serializer>
     inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, bool>::type Hako::AddSerializer()
     {
-        GetInstance().m_FileSerializers.push_back(std::make_unique<Serializer>());
+        s_FileSerializers.push_back(std::make_unique<Serializer>());
 
         return true;
     }
-#endif
 }
 
 // Macro to register serializer classes in namespace scope

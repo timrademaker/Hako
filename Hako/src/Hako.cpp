@@ -6,28 +6,23 @@
 #include <iostream>
 
 using namespace hako;
-
-Hako::Hako()
-{
-    m_FileFactory = hako::HakoFileFactory;
-}
+std::vector<std::unique_ptr<IFileSerializer>> Hako::s_FileSerializers;
+Hako::FileFactorySignature Hako::s_FileFactory = hako::HakoFileFactory;
 
 void Hako::SetFileIO(FileFactorySignature a_FileFactory)
 {
-    GetInstance().m_FileFactory = a_FileFactory;
+    s_FileFactory = a_FileFactory;
 }
 
 #ifndef HAKO_READ_ONLY
 bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile)
 {
-    Hako& instance = GetInstance();
-
     // TODO: Sort a_FileNames alphabetically
 
     if (!a_OverwriteExistingFile)
     {
         // Check if the file already exists
-        if (instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read) != nullptr)
+        if (s_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read) != nullptr)
         {
             // The file already exists
 #ifndef HAKO_STANDALONE
@@ -46,7 +41,7 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
         }
     }
 
-    std::unique_ptr<IFile> archive = instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::WriteTruncate);
+    std::unique_ptr<IFile> archive = s_FileFactory(a_ArchiveName, IFile::FileOpenMode::WriteTruncate);
     if (archive == nullptr)
     {
         std::cout << "Unable to open archive " << a_ArchiveName << " for writing!" << std::endl;
@@ -58,7 +53,7 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
 
     {
         FileCount_t numFiles = a_FileNames.size();
-        instance.WriteToArchive(archive.get(), &numFiles, sizeof(numFiles), archiveInfoBytesWritten);
+        WriteToArchive(archive.get(), &numFiles, sizeof(numFiles), archiveInfoBytesWritten);
         archiveInfoBytesWritten += sizeof(numFiles);
     }
 
@@ -66,18 +61,18 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
     // Create FileInfo objects and serialize file content to archive
     for (size_t fileIndex = 0; fileIndex < a_FileNames.size(); ++fileIndex)
     {
-        std::unique_ptr<IFile> currentFile = instance.m_FileFactory(a_FileNames[fileIndex], IFile::FileOpenMode::Read);
+        std::unique_ptr<IFile> currentFile = s_FileFactory(a_FileNames[fileIndex], IFile::FileOpenMode::Read);
 
         FileInfo fi{};
         strcpy_s(fi.m_Name, FileInfo::MaxFileNameLength, a_FileNames[fileIndex].c_str()); // TODO: Cut off file name at last /?
         fi.m_Offset = sizeof(FileCount_t) + sizeof(FileInfo) * a_FileNames.size() + totalFileSize;
 
         // Serialize file into the archive
-        fi.m_Size = instance.SerializeFile(archive.get(), fi);
+        fi.m_Size = SerializeFile(archive.get(), fi);
         totalFileSize += fi.m_Size;
         
         // Write file info to the archive
-        instance.WriteToArchive(archive.get(), &fi, sizeof(fi), archiveInfoBytesWritten);
+        WriteToArchive(archive.get(), &fi, sizeof(fi), archiveInfoBytesWritten);
         archiveInfoBytesWritten += sizeof(fi);
     }
 
@@ -87,22 +82,21 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
 
 bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
 {
-    Hako& instance = GetInstance();
-    instance.m_OpenedFiles.clear();
-    instance.m_FilesInArchive.clear();
+    m_OpenedFiles.clear();
+    m_FilesInArchive.clear();
     
     // Open archive
-    instance.m_ArchiveReader = instance.m_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read);
-    if (instance.m_ArchiveReader == nullptr)
+    m_ArchiveReader = s_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read);
+    if (m_ArchiveReader == nullptr)
     {
         std::cout << "Unable to open archive " << a_ArchiveName << " for reading!" << std::endl;
-        assert(instance.m_ArchiveReader == nullptr);
+        assert(m_ArchiveReader == nullptr);
         return false;
     }
 
     std::vector<char> buffer{};
     buffer.resize(sizeof(FileCount_t));
-    instance.m_ArchiveReader->Read(sizeof(FileCount_t), 0, buffer);
+    m_ArchiveReader->Read(sizeof(FileCount_t), 0, buffer);
     size_t bytesRead = sizeof(FileCount_t);
 
     const FileCount_t numberOfFiles = *reinterpret_cast<FileCount_t*>(buffer.data());
@@ -114,29 +108,19 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
         buffer.clear();
         buffer.resize(sizeof(FileInfo));
 
-        instance.m_ArchiveReader->Read(sizeof(FileInfo), bytesRead, buffer);
+        m_ArchiveReader->Read(sizeof(FileInfo), bytesRead, buffer);
         bytesRead += sizeof(FileInfo);
 
-        instance.m_FilesInArchive.push_back(*reinterpret_cast<FileInfo*>(buffer.data()));
+        m_FilesInArchive.push_back(*reinterpret_cast<FileInfo*>(buffer.data()));
     }
 
     return true;
 }
 
-void Hako::CloseArchive()
-{
-    Hako& instance = GetInstance();
-    instance.m_OpenedFiles.clear();
-    instance.m_FilesInArchive.clear();
-    instance.m_ArchiveReader = nullptr;
-}
-
 const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 {
-    Hako& instance = GetInstance();
-
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    const std::vector<char>* outsideData = instance.ReadFileOutsideArchive(a_FileName);
+    const std::vector<char>* outsideData = ReadFileOutsideArchive(a_FileName);
     if (outsideData != nullptr)
     {
         return outsideData;
@@ -145,21 +129,21 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 
     // Check if the file has already been read
     {
-        const auto openedFile = instance.m_OpenedFiles.find(a_FileName);
-        if (openedFile != instance.m_OpenedFiles.end())
+        const auto openedFile = m_OpenedFiles.find(a_FileName);
+        if (openedFile != m_OpenedFiles.end())
         {
             return &openedFile->second;
         }
     }
 
     // Add a new entry for this file
-    std::vector<char>& data = instance.m_OpenedFiles[a_FileName];
+    std::vector<char>& data = m_OpenedFiles[a_FileName];
     if (data.size() != 0)
     {
         return &data;
     }
     
-    const FileInfo* fi = instance.GetFileInfo(a_FileName);
+    const FileInfo* fi = GetFileInfo(a_FileName);
     if (fi == nullptr)
     {
         std::cout << "Unable to find file " << a_FileName << " in archive." << std::endl;
@@ -169,7 +153,7 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 
     // Read the file's content
     data.resize(fi->m_Size);
-    if (instance.m_ArchiveReader->Read(fi->m_Size, fi->m_Offset, data))
+    if (m_ArchiveReader->Read(fi->m_Size, fi->m_Offset, data))
     {
         return &data;
     }
@@ -179,22 +163,14 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 
 const void Hako::CloseFile(const FileName_t& a_FileName)
 {
-    Hako& instance = GetInstance();
-
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    instance.m_OpenedFilesOutsideArchive.erase(a_FileName);
+    m_OpenedFilesOutsideArchive.erase(a_FileName);
 #endif
-    instance.m_OpenedFiles.erase(a_FileName);
-}
-
-Hako& Hako::GetInstance()
-{
-    static Hako instance;
-    return instance;
+    m_OpenedFiles.erase(a_FileName);
 }
 
 #ifndef HAKO_READ_ONLY
-void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset) const
+void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, size_t a_WriteOffset)
 {
     std::vector<char> buffer(a_NumBytes, 0);
 
@@ -229,7 +205,7 @@ const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
     return nullptr;
 }
 
-size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const
+size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo)
 {
     IFileSerializer* serializer = GetSerializerForFile(a_FileInfo.m_Name);
 
@@ -247,12 +223,12 @@ size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const
     }
 }
 
-IFileSerializer* Hako::GetSerializerForFile(const FileName_t& a_FileName) const
+IFileSerializer* Hako::GetSerializerForFile(const FileName_t& a_FileName)
 {
     IFileSerializer* serializer = nullptr;
 
     // Find serializer for this file
-    for (auto iter = m_FileSerializers.begin(); iter != m_FileSerializers.end(); ++iter)
+    for (auto iter = s_FileSerializers.begin(); iter != s_FileSerializers.end(); ++iter)
     {
         if ((*iter)->ShouldHandleFile(a_FileName))
         {
@@ -264,11 +240,11 @@ IFileSerializer* Hako::GetSerializerForFile(const FileName_t& a_FileName) const
     return serializer;
 }
 
-size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const
+size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName)
 {
     std::vector<char> data{};
 
-    std::unique_ptr<IFile> file = m_FileFactory(a_FileName, IFile::FileOpenMode::Read);
+    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, IFile::FileOpenMode::Read);
     const size_t fileSize = file->GetFileSize();
     size_t bytesRead = 0;
 
@@ -305,7 +281,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
     }
 
     // Try to open the file
-    std::unique_ptr<IFile> file = m_FileFactory(a_FileName, IFile::FileOpenMode::Read);
+    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, IFile::FileOpenMode::Read);
 
     if (file == nullptr)
     {
