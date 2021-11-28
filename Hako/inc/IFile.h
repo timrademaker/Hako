@@ -4,6 +4,9 @@
 
 namespace hako
 {
+    /**
+     * Base class for Hako file IO
+     */
     class IFile
     {
     public:

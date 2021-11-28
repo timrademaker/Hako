@@ -13,9 +13,11 @@ namespace hako
 {
     class Hako final
     {
+    public:
+        using FileName_t = std::string;
     private:
-        using FileFactorySignature = std::function<std::unique_ptr<IFile>(const std::string & a_FilePath, IFile::FileOpenMode a_FileOpenMode)>;
-        using FileCountType = uint32_t;
+        using FileCount_t = uint32_t;
+        using FileFactorySignature = std::function<std::unique_ptr<IFile>(const FileName_t& a_FilePath, IFile::FileOpenMode a_FileOpenMode)>;
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
 
@@ -30,8 +32,8 @@ namespace hako
 
     public:
         /**
-         * Set a class to be used for reading/writing
-         * @param a_FileFactory A file factory with a signature like std::unique_ptr<IFile> OpenFile(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
+         * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file couldn't be opened
+         * @param a_FileFactory A file factory with a signature like std::unique_ptr<IFile> OpenFile(const Hako::FileName_t& a_FilePath, FileOpenMode a_FileOpenMode)
          */
         static void SetFileIO(FileFactorySignature a_FileFactory);
 
@@ -51,7 +53,7 @@ namespace hako
          * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
          * @return True if the archive was created successfully
          */
-        static bool CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName, bool a_OverwriteExistingFile = false);
+        static bool CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
 #endif
 
         /**
@@ -59,13 +61,18 @@ namespace hako
          * @param a_ArchiveName The name of the archive to open
          * @return True if the archive was opened successfully
          */
-        static bool OpenArchive(const std::string& a_ArchiveName);
+        static bool OpenArchive(const FileName_t& a_ArchiveName);
+        /**
+         * Close the currently opened archive
+         */
+        static void CloseArchive();
+
         /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile() or OpenArchive().
+         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
          */
-        static const std::vector<char>* ReadFile(const std::string& a_FileName);
+        static const std::vector<char>* ReadFile(const FileName_t& a_FileName);
 
     private:
         Hako();
@@ -91,7 +98,7 @@ namespace hako
          * @param a_FileName The file to find file info for
          * @return The file info, or a nullptr if not found
          */
-        const FileInfo* GetFileInfo(const std::string& a_FileName) const;
+        const FileInfo* GetFileInfo(const FileName_t& a_FileName) const;
 
         /**
          * Serialize a file into the archive
@@ -108,15 +115,18 @@ namespace hako
          * @param a_FileName The file to serialize
          * @return The number of bytes written
          */
-        size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const std::string& a_FileName) const;
+        size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const;
 
 
     private:
+        /** All file serializers provided by the user */
         std::vector<std::unique_ptr<IFileSerializer>> m_FileSerializers;
+        /** Info on all files present in the archive opened with OpenArchive() */
         std::vector<FileInfo> m_FilesInArchive;
-        std::map<std::string, std::vector<char>> m_OpenedFiles;
+        /** All files that have already been opened with ReadFile() */
+        std::map<FileName_t, std::vector<char>> m_OpenedFiles;
         FileFactorySignature m_FileFactory = nullptr;
-
+        /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
     };
 

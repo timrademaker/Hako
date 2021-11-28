@@ -18,7 +18,7 @@ void Hako::SetFileIO(FileFactorySignature a_FileFactory)
 }
 
 #ifndef HAKO_READ_ONLY
-bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std::string& a_ArchiveName, bool a_OverwriteExistingFile)
+bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile)
 {
     Hako& instance = GetInstance();
 
@@ -57,7 +57,7 @@ bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std:
     size_t archiveInfoBytesWritten = 0;
 
     {
-        FileCountType numFiles = a_FileNames.size();
+        FileCount_t numFiles = a_FileNames.size();
         instance.WriteToArchive(archive.get(), &numFiles, sizeof(numFiles), archiveInfoBytesWritten);
         archiveInfoBytesWritten += sizeof(numFiles);
     }
@@ -70,7 +70,7 @@ bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std:
 
         FileInfo fi{};
         strcpy_s(fi.m_Name, FileInfo::MaxFileNameLength, a_FileNames[fileIndex].c_str()); // TODO: Cut off file name at last /?
-        fi.m_Offset = sizeof(FileCountType) + sizeof(FileInfo) * a_FileNames.size() + totalFileSize;
+        fi.m_Offset = sizeof(FileCount_t) + sizeof(FileInfo) * a_FileNames.size() + totalFileSize;
 
         // Serialize file into the archive
         fi.m_Size = instance.SerializeFile(archive.get(), fi);
@@ -85,7 +85,7 @@ bool Hako::CreateArchive(const std::vector<std::string>& a_FileNames, const std:
 }
 #endif
 
-bool Hako::OpenArchive(const std::string& a_ArchiveName)
+bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
 {
     Hako& instance = GetInstance();
     instance.m_OpenedFiles.clear();
@@ -101,15 +101,15 @@ bool Hako::OpenArchive(const std::string& a_ArchiveName)
     }
 
     std::vector<char> buffer{};
-    buffer.resize(sizeof(FileCountType));
-    instance.m_ArchiveReader->Read(sizeof(FileCountType), 0, buffer);
-    size_t bytesRead = sizeof(FileCountType);
+    buffer.resize(sizeof(FileCount_t));
+    instance.m_ArchiveReader->Read(sizeof(FileCount_t), 0, buffer);
+    size_t bytesRead = sizeof(FileCount_t);
 
-    const FileCountType numberOfFiles = *reinterpret_cast<FileCountType*>(buffer.data());
+    const FileCount_t numberOfFiles = *reinterpret_cast<FileCount_t*>(buffer.data());
     
     buffer.reserve(sizeof(FileInfo));
 
-    for (FileCountType fileNum = 0; fileNum < numberOfFiles; ++fileNum)
+    for (FileCount_t fileNum = 0; fileNum < numberOfFiles; ++fileNum)
     {
         buffer.clear();
         buffer.resize(sizeof(FileInfo));
@@ -123,7 +123,15 @@ bool Hako::OpenArchive(const std::string& a_ArchiveName)
     return true;
 }
 
-const std::vector<char>* Hako::ReadFile(const std::string& a_FileName)
+void Hako::CloseArchive()
+{
+    Hako& instance = GetInstance();
+    instance.m_OpenedFiles.clear();
+    instance.m_FilesInArchive.clear();
+    instance.m_ArchiveReader = nullptr;
+}
+
+const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 {
     Hako& instance = GetInstance();
 
@@ -179,7 +187,7 @@ void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, siz
 }
 #endif
 
-const Hako::FileInfo* Hako::GetFileInfo(const std::string& a_FileName) const
+const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 {
     // TODO: Binary search
 
@@ -222,7 +230,7 @@ size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo) const
     }
 }
 
-size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const std::string& a_FileName) const
+size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName) const
 {
     std::vector<char> data{};
 
