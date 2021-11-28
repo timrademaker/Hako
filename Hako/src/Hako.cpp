@@ -1,9 +1,10 @@
 #include "Hako.h"
+#include "HakoFile.h"
 
 #include <assert.h>
 #include <algorithm>
 
-#include "HakoFile.h"
+using namespace hako;
 
 Hako::Hako()
 {

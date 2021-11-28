@@ -25,9 +25,7 @@ namespace hako
 
     private:
         std::fstream* m_FileHandle;
-
     };
-
 
     std::unique_ptr<IFile> HakoFileFactory(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode);
 }
