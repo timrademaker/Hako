@@ -2,7 +2,12 @@
 
 using namespace hako;
 
-HakoFile::HakoFile(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
+HakoFile::~HakoFile()
+{
+	CloseFile();
+}
+
+bool hako::HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
 {
 	int openFlags = 0;
 	if (a_FileOpenMode == IFile::FileOpenMode::Read)
@@ -21,11 +26,8 @@ HakoFile::HakoFile(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpen
 	openFlags |= std::ios::binary;
 
 	m_FileHandle = std::make_unique<std::fstream>(a_FilePath, openFlags);
-}
 
-HakoFile::~HakoFile()
-{
-	CloseFile();
+	return m_FileHandle->good();
 }
 
 bool HakoFile::Read(size_t a_NumBytes, size_t a_Offset, std::vector<char>& a_Buffer)
@@ -65,5 +67,10 @@ void HakoFile::CloseFile()
 
 std::unique_ptr<IFile> hako::HakoFileFactory(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
 {
-	return std::make_unique<HakoFile>(a_FilePath, a_FileOpenMode);
+	std::unique_ptr<HakoFile> file = std::make_unique<HakoFile>();
+	if (file->Open(a_FilePath, a_FileOpenMode))
+	{
+		return file;
+	}
+	return nullptr;
 }
