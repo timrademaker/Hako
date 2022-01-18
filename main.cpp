@@ -8,8 +8,8 @@ int main(int argc, char* argv[])
     if (argc < 3)
     {
         printf("Not enough arguments provided!\n");
-        printf("Usage: HakoContentPacker <output_archive_name> <file_to_archive> [<files_to_archive>...]\n");
-        printf("Example: HakoContentPacker Content.bin a.txt b.txt\n");
+        printf("Usage: Hako <output_archive_name> <file_to_archive> [<files_to_archive>...]\n");
+        printf("Example: Hako Content.bin a.txt b.txt\n");
         return 1;
     }
 

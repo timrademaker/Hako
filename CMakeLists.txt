@@ -35,7 +35,7 @@ if(HAKO_STANDALONE)
 	add_compile_definitions("HAKO_STANDALONE")
 
 	# Add source to this project's executable.
-	add_executable (HakoContentPacker "main.cpp")
+	add_executable (Hako "main.cpp")
 
-	target_link_libraries(HakoContentPacker PRIVATE Hako)
+	target_link_libraries(Hako PRIVATE HakoLib)
 endif(HAKO_STANDALONE)

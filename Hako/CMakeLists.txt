@@ -26,7 +26,7 @@ if(HAKO_READ_OUTSIDE_OF_ARCHIVE)
 endif(HAKO_READ_OUTSIDE_OF_ARCHIVE)
 
 # Create library for Hako
-add_library(Hako EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})
+add_library(HakoLib EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})
 
 # Add include directories
-target_include_directories(Hako PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
+target_include_directories(HakoLib PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
