@@ -1,6 +1,8 @@
 #include "Hako/inc/Hako.h"
 
 using hako::Hako;
+
+#ifdef HAKO_STANDALONE
 int main(int argc, char* argv[])
 {
     if (argc < 3)
@@ -31,3 +33,4 @@ int main(int argc, char* argv[])
 
     return success ? 0 : 1;
 }
+#endif
