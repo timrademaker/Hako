@@ -20,6 +20,7 @@ namespace hako
         using FileFactorySignature = std::function<std::unique_ptr<IFile>(const FileName_t& a_FilePath, IFile::FileOpenMode a_FileOpenMode)>;
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
+        static constexpr int8_t CurrentVersion = 1;
 
         struct FileInfo
         {
@@ -28,6 +29,13 @@ namespace hako
             char m_Name[MaxFileNameLength] = {};
             size_t m_Size = 0;
             size_t m_Offset = 0;
+        };
+
+        struct HakoHeader
+        {
+            char m_Magic[4] = { 'H', 'A', 'K', 'O' };
+            int8_t m_Version = CurrentVersion;
+            FileCount_t m_FileCount = 0;
         };
 
     public:
@@ -72,7 +80,7 @@ namespace hako
         /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
+         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader, but should remain valid until the file or archive is closed if all files have already been loaded.
          */
         const std::vector<char>* ReadFile(const FileName_t& a_FileName);
 

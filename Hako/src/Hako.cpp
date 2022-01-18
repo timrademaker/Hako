@@ -51,9 +51,10 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
     size_t archiveInfoBytesWritten = 0;
 
     {
-        FileCount_t numFiles = a_FileNames.size();
-        WriteToArchive(archive.get(), &numFiles, sizeof(numFiles), archiveInfoBytesWritten);
-        archiveInfoBytesWritten += sizeof(numFiles);
+        HakoHeader header;
+        header.m_FileCount = a_FileNames.size();
+        WriteToArchive(archive.get(), &header, sizeof(HakoHeader), archiveInfoBytesWritten);
+        archiveInfoBytesWritten += sizeof(HakoHeader);
     }
 
     size_t totalFileSize = 0;
