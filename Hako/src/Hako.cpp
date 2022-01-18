@@ -118,6 +118,14 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
     return true;
 }
 
+void hako::Hako::LoadAllFiles()
+{
+    for (const FileInfo& fi : m_FilesInArchive)
+    {
+        LoadFileContent(fi);
+    }
+}
+
 const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
@@ -128,22 +136,6 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
     }
 #endif
 
-    // Check if the file has already been read
-    {
-        const auto openedFile = m_OpenedFiles.find(a_FileName);
-        if (openedFile != m_OpenedFiles.end())
-        {
-            return &openedFile->second;
-        }
-    }
-
-    // Add a new entry for this file
-    std::vector<char>& data = m_OpenedFiles[a_FileName];
-    if (data.size() != 0)
-    {
-        return &data;
-    }
-    
     const FileInfo* fi = GetFileInfo(a_FileName);
     if (fi == nullptr)
     {
@@ -152,14 +144,7 @@ const std::vector<char>* Hako::ReadFile(const FileName_t& a_FileName)
         return nullptr;
     }
 
-    // Read the file's content
-    data.resize(fi->m_Size);
-    if (m_ArchiveReader->Read(fi->m_Size, fi->m_Offset, data))
-    {
-        return &data;
-    }
-
-    return nullptr;
+    return LoadFileContent(*fi);
 }
 
 const void Hako::CloseFile(const FileName_t& a_FileName)
@@ -308,6 +293,34 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
         {
             return &data;
         }
+    }
+
+    return nullptr;
+}
+
+const std::vector<char>* hako::Hako::LoadFileContent(const FileInfo& a_FileInfo)
+{
+    // Check if the file has already been read
+    {
+        const auto openedFile = m_OpenedFiles.find(a_FileInfo.m_Name);
+        if (openedFile != m_OpenedFiles.end())
+        {
+            return &openedFile->second;
+        }
+    }
+
+    // Add a new entry for this file
+    std::vector<char>& data = m_OpenedFiles[a_FileInfo.m_Name];
+    if (data.size() != 0)
+    {
+        return &data;
+    }
+
+    // Read the file's content
+    data.resize(a_FileInfo.m_Size);
+    if (m_ArchiveReader->Read(a_FileInfo.m_Size, a_FileInfo.m_Offset, data))
+    {
+        return &data;
     }
 
     return nullptr;

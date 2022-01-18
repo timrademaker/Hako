@@ -65,6 +65,11 @@ namespace hako
         bool OpenArchive(const FileName_t& a_ArchiveName);
 
         /**
+         * Load all files from an archive into memory
+         */
+        void LoadAllFiles();
+
+        /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
          * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
@@ -124,6 +129,13 @@ namespace hako
          * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
          */
         const std::vector<char>* ReadFileOutsideArchive(const FileName_t& a_FileName);
+
+        /**
+         * Read the content of an archived file from the archive that is currently open
+         * @param a_FileInfo The file info for the file that should be loaded
+         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
+         */
+        const std::vector<char>* LoadFileContent(const FileInfo& a_FileInfo);
 
 
     private:
