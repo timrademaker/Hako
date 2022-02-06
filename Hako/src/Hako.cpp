@@ -97,15 +97,20 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
     }
 
     std::vector<char> buffer{};
-    buffer.resize(sizeof(FileCount_t));
-    m_ArchiveReader->Read(sizeof(FileCount_t), 0, buffer);
-    size_t bytesRead = sizeof(FileCount_t);
+    buffer.resize(sizeof(HakoHeader));
+    m_ArchiveReader->Read(sizeof(HakoHeader), 0, buffer);
+    size_t bytesRead = sizeof(HakoHeader);
 
-    const FileCount_t numberOfFiles = *reinterpret_cast<FileCount_t*>(buffer.data());
+    const HakoHeader header = *reinterpret_cast<HakoHeader*>(buffer.data());
+    if (strcmp(header.m_Magic, Magic) != 0)
+    {
+        std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
+        return false;
+    }
     
     buffer.reserve(sizeof(FileInfo));
 
-    for (FileCount_t fileNum = 0; fileNum < numberOfFiles; ++fileNum)
+    for (FileCount_t fileNum = 0; fileNum < header.m_FileCount; ++fileNum)
     {
         buffer.clear();
         buffer.resize(sizeof(FileInfo));

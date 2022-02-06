@@ -21,6 +21,7 @@ namespace hako
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
         static constexpr int8_t CurrentVersion = 1;
+        static constexpr char Magic[] = "HAKO";
 
         struct FileInfo
         {
@@ -33,9 +34,10 @@ namespace hako
 
         struct HakoHeader
         {
-            char m_Magic[4] = { 'H', 'A', 'K', 'O' };
+            const char m_Magic[5] = "HAKO";
             int8_t m_Version = CurrentVersion;
             FileCount_t m_FileCount = 0;
+            char m_Padding[6];
         };
 
     public:
