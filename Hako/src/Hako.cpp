@@ -65,15 +65,15 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
 
         FileInfo fi{};
         strcpy_s(fi.m_Name, FileInfo::MaxFileNameLength, a_FileNames[fileIndex].c_str()); // TODO: Cut off file name at last /?
-        fi.m_Offset = sizeof(FileCount_t) + sizeof(FileInfo) * a_FileNames.size() + totalFileSize;
+        fi.m_Offset = sizeof(HakoHeader) + sizeof(FileInfo) * a_FileNames.size() + totalFileSize;
 
         // Serialize file into the archive
         fi.m_Size = SerializeFile(archive.get(), fi);
         totalFileSize += fi.m_Size;
         
         // Write file info to the archive
-        WriteToArchive(archive.get(), &fi, sizeof(fi), archiveInfoBytesWritten);
-        archiveInfoBytesWritten += sizeof(fi);
+        WriteToArchive(archive.get(), &fi, sizeof(FileInfo), archiveInfoBytesWritten);
+        archiveInfoBytesWritten += sizeof(FileInfo);
     }
 
     return true;
