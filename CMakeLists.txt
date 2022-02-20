@@ -23,11 +23,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 	${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/lib
 )
 
-# Set compiler options
-if(MSVC)
-    add_compile_options("/W4")
-endif(MSVC)
-
 # Include sub-folders
 add_subdirectory("Hako")
 

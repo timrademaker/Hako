@@ -7,7 +7,8 @@ set(HEADERS
     inc/IFile.h
     inc/IFileSerializer.h
     inc/HakoFile.h
-)
+    private/SerializerList.h
+ )
 
 # Set sources for Hako
 set(SOURCES
@@ -15,6 +16,7 @@ set(SOURCES
     src/IFile.cpp
     src/IFileSerializer.cpp
     src/HakoFile.cpp
+    private/SerializerList.cpp
 )
 
 if(HAKO_STANDALONE)
@@ -30,3 +32,4 @@ add_library(HakoLib EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})
 
 # Add include directories
 target_include_directories(HakoLib PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
+target_include_directories(HakoLib PRIVATE ${CMAKE_CURRENT_LIST_DIR}/private)

@@ -1,12 +1,13 @@
 #include "Hako.h"
 #include "HakoFile.h"
+#include "SerializerList.h"
 
 #include <assert.h>
 #include <algorithm>
 #include <iostream>
 
 using namespace hako;
-std::vector<std::unique_ptr<IFileSerializer>> Hako::s_FileSerializers;
+
 Hako::FileFactorySignature Hako::s_FileFactory = hako::HakoFileFactory;
 
 void Hako::SetFileIO(FileFactorySignature a_FileFactory)
@@ -197,7 +198,7 @@ const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 
 size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo)
 {
-    IFileSerializer* serializer = GetSerializerForFile(a_FileInfo.m_Name);
+    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileInfo.m_Name);
 
     if (serializer != nullptr)
     {
@@ -211,23 +212,6 @@ size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo)
     {
         return DefaultSerializeFile(a_Archive, a_FileInfo.m_Offset, a_FileInfo.m_Name);
     }
-}
-
-IFileSerializer* Hako::GetSerializerForFile(const FileName_t& a_FileName)
-{
-    IFileSerializer* serializer = nullptr;
-
-    // Find serializer for this file
-    for (auto iter = s_FileSerializers.begin(); iter != s_FileSerializers.end(); ++iter)
-    {
-        if ((*iter)->ShouldHandleFile(a_FileName))
-        {
-            serializer = iter->get();
-            break;
-        }
-    }
-    
-    return serializer;
 }
 
 size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, const FileName_t& a_FileName)
@@ -279,7 +263,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
     std::vector<char>& data = m_OpenedFilesOutsideArchive[a_FileName];
     
     // Serialize file
-    IFileSerializer* serializer = GetSerializerForFile(a_FileName);
+    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileName);
     if (serializer != nullptr)
     {
         // Close the file to prevent possible issues
@@ -330,4 +314,9 @@ const std::vector<char>* hako::Hako::LoadFileContent(const FileInfo& a_FileInfo)
     }
 
     return nullptr;
+}
+
+void hako::Hako::AddSerializer_Internal(IFileSerializer* a_FileSerializer)
+{
+    SerializerList::GetInstance().AddSerializer(a_FileSerializer);
 }

@@ -55,7 +55,7 @@ namespace hako
          * The serializer should inherit from IFileSerializer
          */
         template<typename Serializer>
-        static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, bool>::type
+        static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, IFileSerializer*>::type
             AddSerializer();
 
         /**
@@ -118,13 +118,6 @@ namespace hako
         static size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo);
 
         /**
-         * Get the serializer to use for a file
-         * @param a_FileName The file that needs to be serialized
-         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
-         */
-        static IFileSerializer* GetSerializerForFile(const FileName_t& a_FileName);
-
-        /**
          * If no serializer can be found for a certain file, simply copy its content to the archive
          * @param a_Archive The archive to serialize to
          * @param a_ArchiveWriteOffset The offset in the archive at which to start writing
@@ -147,6 +140,10 @@ namespace hako
          */
         const std::vector<char>* LoadFileContent(const FileInfo& a_FileInfo);
 
+        /**
+         * Internal implementation for adding a new serializer
+         */
+        static void AddSerializer_Internal(IFileSerializer* a_FileSerializer);
 
     private:
         /** Info on all files present in the archive opened with OpenArchive() */
@@ -159,21 +156,28 @@ namespace hako
         /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
         std::map<FileName_t, std::vector<char>> m_OpenedFilesOutsideArchive;
 
-        /** All file serializers provided by the user */
-        static std::vector<std::unique_ptr<IFileSerializer>> s_FileSerializers;
         /** The factory function to use for file IO */
         static FileFactorySignature s_FileFactory;
     };
 
     template<typename Serializer>
-    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, bool>::type Hako::AddSerializer()
+    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, IFileSerializer*>::type Hako::AddSerializer()
     {
-        s_FileSerializers.push_back(std::make_unique<Serializer>());
+        IFileSerializer* fs = new Serializer;
+        AddSerializer_Internal(fs);
 
-        return true;
+        return fs;
     }
 }
 
 // Macro to register serializer classes in namespace scope
 #define HAKO_ADD_SERIALIZER(SerializerClass) namespace hako { \
-    const bool addedSerializer_##SerializerClass = Hako::AddSerializer<SerializerClass>(); }
+    const IFileSerializer* const addedSerializer_##SerializerClass = Hako::AddSerializer<SerializerClass>(); }
+
+// Macro to register serializer from dll
+#define HAKO_ADD_DYNAMIC_SERIALIZER(SerializerClass) \
+extern "C" { \
+    __declspec(dllexport) hako::IFileSerializer* __stdcall CreateHakoSerializer() { \
+        return new SerializerClass; \
+    } \
+}
