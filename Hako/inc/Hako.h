@@ -179,10 +179,16 @@ namespace hako
 #define HAKO_ADD_SERIALIZER(SerializerClass) namespace hako { \
     const IFileSerializer* const addedSerializer_##SerializerClass = Hako::AddSerializer<SerializerClass>(); }
 
+#if defined(_MSC_VER)
+#define HAKO_DLL_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define HAKO_DLL_EXPORT __attribute__ ((visibility ("default"))
+#endif
+
 // Macro to register serializer from dll
 #define HAKO_ADD_DYNAMIC_SERIALIZER(SerializerClass) \
 extern "C" { \
-    __declspec(dllexport) hako::IFileSerializer* __stdcall CreateHakoSerializer() { \
+    HAKO_DLL_EXPORT hako::IFileSerializer* __stdcall CreateHakoSerializer() { \
         return new SerializerClass; \
     } \
 }
