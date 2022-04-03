@@ -183,7 +183,7 @@ namespace hako
 #if defined(_MSC_VER)
 #define HAKO_DLL_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__)
-#define HAKO_DLL_EXPORT __attribute__ ((visibility ("default"))
+#define HAKO_DLL_EXPORT extern __attribute__ ((visibility ("default"))
 #endif
 
 // Macro to register serializer from dll
