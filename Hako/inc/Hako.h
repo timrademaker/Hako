@@ -21,7 +21,8 @@ namespace hako
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
         static constexpr int8_t CurrentVersion = 1;
-        static constexpr char Magic[] = {'H', 'A', 'K', 'O'};
+        static constexpr int8_t MagicLength = 4;
+        static constexpr char Magic[MagicLength] = {'H', 'A', 'K', 'O'};
 
         struct FileInfo
         {
@@ -36,10 +37,10 @@ namespace hako
         {
             HakoHeader()
             {
-                strcpy_s(m_Magic, Magic);
+                memcpy(m_Magic, Magic, MagicLength);
             }
 
-            char m_Magic[4];
+            char m_Magic[MagicLength];
             FileCount_t m_FileCount = 0;
             char m_Padding[7] = {};
             int8_t m_Version = CurrentVersion;
