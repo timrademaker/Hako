@@ -71,7 +71,7 @@ namespace hako
          * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
          * @return True if the archive was created successfully
          */
-        static bool CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
+        static bool CreateArchive(std::vector<FileName_t> a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
 
         /**
          * Open an archive for reading

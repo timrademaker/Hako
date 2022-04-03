@@ -15,10 +15,8 @@ void Hako::SetFileIO(FileFactorySignature a_FileFactory)
     s_FileFactory = a_FileFactory;
 }
 
-bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile)
+bool Hako::CreateArchive(std::vector<FileName_t> a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile)
 {
-    // TODO: Sort a_FileNames alphabetically
-
     if (!a_OverwriteExistingFile)
     {
         // Check if the file already exists
@@ -58,7 +56,11 @@ bool Hako::CreateArchive(const std::vector<FileName_t>& a_FileNames, const FileN
         archiveInfoBytesWritten += sizeof(HakoHeader);
     }
 
+    // Sort file names alphabetically
+    std::sort(a_FileNames.begin(), a_FileNames.end());
+    
     size_t totalFileSize = 0;
+
     // Create FileInfo objects and serialize file content to archive
     for (size_t fileIndex = 0; fileIndex < a_FileNames.size(); ++fileIndex)
     {
@@ -103,9 +105,10 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
     size_t bytesRead = sizeof(HakoHeader);
 
     const HakoHeader header = *reinterpret_cast<HakoHeader*>(buffer.data());
-    if (strcmp(header.m_Magic, Magic) != 0)
+    if (memcmp(header.m_Magic, Magic, MagicLength) != 0)
     {
         std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
+        assert(false);
         return false;
     }
     
@@ -183,17 +186,23 @@ void Hako::WriteToArchive(IFile* a_Archive, void* a_Data, size_t a_NumBytes, siz
 
 const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 {
-    // TODO: Binary search
-
-    for (auto iter = m_FilesInArchive.begin(); iter != m_FilesInArchive.end(); ++iter)
-    {
-        if (iter->m_Name == a_FileName)
+    assert(!m_FilesInArchive.empty());
+    
+    // Find file (assumes that file names were sorted before this)
+    auto foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), a_FileName, [](const hako::Hako::FileInfo& a_Lhs, const FileName_t& a_Rhs)
         {
-            return &(*iter);
+            return a_Lhs.m_Name < a_Rhs;
         }
-    }
+    );
 
-    return nullptr;
+    if (foundFile == m_FilesInArchive.end())
+    {
+        return nullptr;
+    }
+    else
+    {
+        return &(*foundFile);
+    }
 }
 
 size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo)
