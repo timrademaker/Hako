@@ -6,6 +6,7 @@ namespace hako
 {
     /**
      * Base class for Hako file IO
+     * @note The destructor is expected to close the file
      */
     class IFile
     {

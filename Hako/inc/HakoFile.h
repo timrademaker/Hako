@@ -10,7 +10,7 @@ namespace hako
     {
     public:
         HakoFile() = default;
-        virtual ~HakoFile();
+        virtual ~HakoFile() override;
 
         bool Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode);
 

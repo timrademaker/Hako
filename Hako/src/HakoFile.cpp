@@ -1,5 +1,7 @@
 #include "HakoFile.h"
 
+#include <cassert>
+
 using namespace hako;
 
 HakoFile::~HakoFile()
@@ -32,6 +34,8 @@ bool HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpe
 
 bool HakoFile::Read(size_t a_NumBytes, size_t a_Offset, std::vector<char>& a_Buffer)
 {
+	assert(m_FileHandle != nullptr);
+
 	m_FileHandle->seekg(a_Offset, std::ios_base::beg);
 	m_FileHandle->read(a_Buffer.data(), a_NumBytes);
 
@@ -40,6 +44,8 @@ bool HakoFile::Read(size_t a_NumBytes, size_t a_Offset, std::vector<char>& a_Buf
 
 size_t HakoFile::GetFileSize()
 {
+	assert(m_FileHandle != nullptr);
+
 	m_FileHandle->seekg(0, std::ios_base::end);
 
 	return m_FileHandle->tellg();
@@ -47,6 +53,8 @@ size_t HakoFile::GetFileSize()
 
 bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)
 {
+	assert(m_FileHandle != nullptr);
+
 	m_FileHandle->seekp(a_Offset, std::ios_base::beg);
 	m_FileHandle->write(a_Data.data(), a_Data.size());
 	return !m_FileHandle->fail();
@@ -60,6 +68,8 @@ void HakoFile::CloseFile()
 		{
 			m_FileHandle->close();
 		}
+
+		m_FileHandle = nullptr;
 	}
 }
 

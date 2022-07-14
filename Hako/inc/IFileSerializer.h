@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HakoPlatforms.h"
+
 #include <string>
 #include <vector>
 
@@ -19,9 +21,10 @@ namespace hako
         /**
          * Serialize a file
          * @param a_FileName The name of the file to serialize
+         * @param a_TargetPlatform The platform for which to serialize the file
          * @param a_Buffer The buffer to put the serialized file content into
          * @return The number of bytes written to the buffer
          */
-        virtual size_t SerializeFile(const std::string& a_FileName, std::vector<char>& a_Buffer) = 0;
+        virtual size_t SerializeFile(const std::string& a_FileName, Platform a_TargetPlatform, std::vector<char>& a_Buffer) = 0;
     };
 }

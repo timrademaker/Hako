@@ -7,8 +7,9 @@ set(HEADERS
     inc/IFile.h
     inc/IFileSerializer.h
     inc/HakoFile.h
+    inc/HakoPlatforms.h
     private/SerializerList.h
- )
+)
 
 # Set sources for Hako
 set(SOURCES

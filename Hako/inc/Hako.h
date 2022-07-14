@@ -1,13 +1,14 @@
 #pragma once
 
-#include "IFileSerializer.h"
+#include "HakoPlatforms.h"
 #include "IFile.h"
+#include "IFileSerializer.h"
 
-#include <vector>
-#include <string>
 #include <functional>
 #include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace hako
 {
@@ -67,11 +68,12 @@ namespace hako
         /**
          * Create an archive
          * @param a_FileNames The names of the files to put into the archive
+         * @param a_TargetPlatform The platform for which to create the archive
          * @param a_ArchiveName The name of the archive to output
          * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
          * @return True if the archive was created successfully
          */
-        static bool CreateArchive(std::vector<FileName_t> a_FileNames, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
+        static bool CreateArchive(std::vector<FileName_t>& a_FileNames, Platform a_TargetPlatform, const FileName_t& a_ArchiveName, bool a_OverwriteExistingFile = false);
 
         /**
          * Open an archive for reading
@@ -96,7 +98,12 @@ namespace hako
          * Close a file that has been read from the archive to free memory
          * @param a_FileName The file to close
          */
-        const void CloseFile(const FileName_t& a_FileName);
+        void CloseFile(const FileName_t& a_FileName);
+
+        /**
+         * Set the platform that Hako is currently being used on. This is only used when reading outside of the archive.
+         */
+        void SetCurrentPlatform(Platform a_Platform);
 
     private:
         /**
@@ -119,9 +126,10 @@ namespace hako
          * Serialize a file into the archive
          * @param a_Archive The archive to write to
          * @param a_FileInfo File info for the file that should be serialized into the archive
+         * @param a_TargetPlatform The platform for which to serialize the file
          * @return The number of bytes written
          */
-        static size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo);
+        static size_t SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo, Platform a_TargetPlatform);
 
         /**
          * If no serializer can be found for a certain file, simply copy its content to the archive
@@ -161,6 +169,9 @@ namespace hako
 
         /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
         std::map<FileName_t, std::vector<char>> m_OpenedFilesOutsideArchive;
+
+        /** The platform that Hako is currently being used on. Only used when reading outside of the archive, which is only supported on Windows by default */
+        Platform m_CurrentPlatform = Platform::Windows;
 
         /** The factory function to use for file IO */
         static FileFactorySignature s_FileFactory;
