@@ -62,7 +62,7 @@ namespace hako
          * The serializer should inherit from IFileSerializer
          */
         template<typename Serializer>
-        static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, IFileSerializer*>::type
+        static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type
             AddSerializer();
 
         /**
@@ -178,23 +178,19 @@ namespace hako
     };
 
     template<typename Serializer>
-    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, IFileSerializer*>::type Hako::AddSerializer()
+    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type Hako::AddSerializer()
     {
         IFileSerializer* fs = new Serializer;
         AddSerializer_Internal(fs);
-
-        return fs;
     }
 }
-
-// Macro to register serializer classes in namespace scope
-#define HAKO_ADD_SERIALIZER(SerializerClass) namespace hako { \
-    const IFileSerializer* const addedSerializer_##SerializerClass = Hako::AddSerializer<SerializerClass>(); }
 
 #if defined(_MSC_VER)
 #define HAKO_DLL_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__)
 #define HAKO_DLL_EXPORT extern __attribute__ ((visibility ("default"))
+#else
+#define HAKO_DLL_EXPORT
 #endif
 
 // Macro to register serializer from dll
