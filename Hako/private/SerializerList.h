@@ -26,9 +26,10 @@ namespace hako
         /**
         * Get the serializer to use for a file
         * @param a_FileName The file that needs to be serialized
+        * @param a_TargetPlatform The platform the file should be serialized for
         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
         */
-        IFileSerializer* GetSerializerForFile(const std::string& a_FileName);
+        IFileSerializer* GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform);
 
     private:
         SerializerList() = default;

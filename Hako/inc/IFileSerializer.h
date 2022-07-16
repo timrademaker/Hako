@@ -15,9 +15,10 @@ namespace hako
         /**
          * Check if this serializer should serialize a certain file
          * @param a_FileName The file that has to be serialized
+         * @param a_TargetPlatform The platform the file should be serialized for
          * @return True if this serializer should serialize a given file
          */
-        virtual bool ShouldHandleFile(const std::string& a_FileName) const = 0;
+        virtual bool ShouldHandleFile(const std::string& a_FileName, Platform a_TargetPlatform) const = 0;
         /**
          * Serialize a file
          * @param a_FileName The name of the file to serialize

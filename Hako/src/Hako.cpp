@@ -212,7 +212,7 @@ const Hako::FileInfo* Hako::GetFileInfo(const FileName_t& a_FileName) const
 
 size_t Hako::SerializeFile(IFile* a_Archive, const FileInfo& a_FileInfo, Platform a_TargetPlatform)
 {
-    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileInfo.m_Name);
+    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileInfo.m_Name, a_TargetPlatform);
 
     if (serializer != nullptr)
     {
@@ -283,7 +283,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
     std::vector<char>& data = m_OpenedFilesOutsideArchive[a_FileName];
     
     // Serialize file
-    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileName);
+    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileName, m_CurrentPlatform);
     if (serializer != nullptr)
     {
         // Close the file to prevent possible issues

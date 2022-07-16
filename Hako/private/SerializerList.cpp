@@ -23,14 +23,14 @@ void hako::SerializerList::AddSerializer(IFileSerializer* a_Serializer)
     m_FileSerializers.push_back(std::unique_ptr<IFileSerializer>(a_Serializer));
 }
 
-IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a_FileName)
+IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform)
 {
     IFileSerializer* serializer = nullptr;
 
     // Find serializer for this file
     for (auto iter = m_FileSerializers.begin(); iter != m_FileSerializers.end(); ++iter)
     {
-        if ((*iter)->ShouldHandleFile(a_FileName))
+        if ((*iter)->ShouldHandleFile(a_FileName, a_TargetPlatform))
         {
             serializer = iter->get();
             break;
