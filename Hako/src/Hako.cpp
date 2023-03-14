@@ -2,8 +2,8 @@
 #include "HakoFile.h"
 #include "SerializerList.h"
 
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <iostream>
 
 using namespace hako;
@@ -102,7 +102,6 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
     std::vector<char> buffer{};
     buffer.resize(sizeof(HakoHeader));
     m_ArchiveReader->Read(sizeof(HakoHeader), 0, buffer);
-    size_t bytesRead = sizeof(HakoHeader);
 
     const HakoHeader header = *reinterpret_cast<HakoHeader*>(buffer.data());
     if (memcmp(header.m_Magic, Magic, MagicLength) != 0)
@@ -112,7 +111,7 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
         return false;
     }
 
-    if(header.m_Version != CurrentVersion)
+    if(header.m_HeaderVersion != HeaderVersion)
     {
         std::cout << "Archive version mismatch. The archive should be rebuilt." << std::endl;
         assert(false);
@@ -120,6 +119,7 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
     }
     
     buffer.reserve(sizeof(FileInfo));
+    size_t bytesRead = header.m_HeaderSize;
 
     for (FileCount_t fileNum = 0; fileNum < header.m_FileCount; ++fileNum)
     {

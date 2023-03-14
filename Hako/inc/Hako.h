@@ -21,8 +21,8 @@ namespace hako
         using FileFactorySignature = std::function<std::unique_ptr<IFile>(const FileName_t& a_FilePath, IFile::FileOpenMode a_FileOpenMode)>;
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
-        static constexpr int8_t CurrentVersion = 1;
-        static constexpr int8_t MagicLength = 4;
+        static constexpr uint8_t HeaderVersion = 2;
+        static constexpr uint8_t MagicLength = 4;
         static constexpr char Magic[MagicLength] = {'H', 'A', 'K', 'O'};
 
         struct FileInfo
@@ -42,9 +42,11 @@ namespace hako
             }
 
             char m_Magic[MagicLength];
+            uint8_t m_HeaderVersion = HeaderVersion;
+            uint8_t m_HeaderSize = sizeof(HakoHeader);
+            char m_Padding[2] = {};
             FileCount_t m_FileCount = 0;
-            char m_Padding[7] = {};
-            int8_t m_Version = CurrentVersion;
+            char m_Padding2[4] = {};
         };
 
     public:
