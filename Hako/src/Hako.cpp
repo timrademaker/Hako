@@ -111,6 +111,13 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
         assert(false);
         return false;
     }
+
+    if(header.m_Version != CurrentVersion)
+    {
+        std::cout << "Archive version mismatch. The archive should be rebuilt." << std::endl;
+        assert(false);
+        return false;
+    }
     
     buffer.reserve(sizeof(FileInfo));
 
