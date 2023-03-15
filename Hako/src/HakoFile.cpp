@@ -1,6 +1,7 @@
 #include "HakoFile.h"
 
 #include <cassert>
+#include <filesystem>
 
 using namespace hako;
 
@@ -9,18 +10,18 @@ HakoFile::~HakoFile()
 	CloseFile();
 }
 
-bool HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
+bool HakoFile::Open(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
 {
 	int openFlags = 0;
-	if (a_FileOpenMode == IFile::FileOpenMode::Read)
+	if (a_FileOpenMode == FileOpenMode::Read)
 	{
 		openFlags = std::ios::in;
 	}
-	else if (a_FileOpenMode == IFile::FileOpenMode::WriteTruncate)
+	else if (a_FileOpenMode == FileOpenMode::WriteTruncate)
 	{
 		openFlags = std::ios::out | std::ios::trunc;
 	}
-	else if (a_FileOpenMode == IFile::FileOpenMode::WriteAppend)
+	else if (a_FileOpenMode == FileOpenMode::WriteAppend)
 	{
 		openFlags = std::ios::out | std::ios::app;
 	}
@@ -28,6 +29,8 @@ bool HakoFile::Open(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpe
 	openFlags |= std::ios::binary;
 
 	m_FileHandle = std::make_unique<std::fstream>(a_FilePath, openFlags);
+
+	m_FilePath = a_FilePath;
 
 	return m_FileHandle->good();
 }
@@ -49,6 +52,13 @@ size_t HakoFile::GetFileSize()
 	m_FileHandle->seekg(0, std::ios_base::end);
 
 	return m_FileHandle->tellg();
+}
+
+time_t HakoFile::GetLastWriteTime()
+{
+	// Who came up with last_write_time's epoch?
+	auto const lastWriteTime = std::filesystem::last_write_time(m_FilePath);
+	return lastWriteTime.time_since_epoch().count();
 }
 
 bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)
@@ -73,7 +83,7 @@ void HakoFile::CloseFile()
 	}
 }
 
-std::unique_ptr<IFile> hako::HakoFileFactory(const std::string& a_FilePath, IFile::FileOpenMode a_FileOpenMode)
+std::unique_ptr<IFile> hako::HakoFileFactory(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
 {
 	std::unique_ptr<HakoFile> file = std::make_unique<HakoFile>();
 	if (file->Open(a_FilePath, a_FileOpenMode))

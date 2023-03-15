@@ -6,7 +6,7 @@ project ("Hako" LANGUAGES CXX)
 
 # Set the C++ language standard
 set(CMAKE_CXX_STANDARD
-	14
+	17
 )
 set(CMAKE_CXX_STANDARD_REQUIRED
 	True

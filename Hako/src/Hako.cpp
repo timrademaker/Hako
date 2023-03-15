@@ -20,7 +20,7 @@ bool Hako::CreateArchive(std::vector<FileName_t>& a_FileNames, Platform a_Target
     if (!a_OverwriteExistingFile)
     {
         // Check if the file already exists
-        if (s_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read) != nullptr)
+        if (s_FileFactory(a_ArchiveName, FileOpenMode::Read) != nullptr)
         {
             // The file already exists
 #ifndef HAKO_STANDALONE
@@ -39,7 +39,7 @@ bool Hako::CreateArchive(std::vector<FileName_t>& a_FileNames, Platform a_Target
         }
     }
 
-    std::unique_ptr<IFile> archive = s_FileFactory(a_ArchiveName, IFile::FileOpenMode::WriteTruncate);
+    std::unique_ptr<IFile> archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
     if (archive == nullptr)
     {
         std::cout << "Unable to open archive " << a_ArchiveName << " for writing!" << std::endl;
@@ -64,7 +64,7 @@ bool Hako::CreateArchive(std::vector<FileName_t>& a_FileNames, Platform a_Target
     // Create FileInfo objects and serialize file content to archive
     for (size_t fileIndex = 0; fileIndex < a_FileNames.size(); ++fileIndex)
     {
-        std::unique_ptr<IFile> currentFile = s_FileFactory(a_FileNames[fileIndex], IFile::FileOpenMode::Read);
+        std::unique_ptr<IFile> currentFile = s_FileFactory(a_FileNames[fileIndex], FileOpenMode::Read);
 
         FileInfo fi{};
         strcpy_s(fi.m_Name, FileInfo::MaxFileNameLength, a_FileNames[fileIndex].c_str());
@@ -91,7 +91,7 @@ bool Hako::OpenArchive(const FileName_t& a_ArchiveName)
 #endif
     
     // Open archive
-    m_ArchiveReader = s_FileFactory(a_ArchiveName, IFile::FileOpenMode::Read);
+    m_ArchiveReader = s_FileFactory(a_ArchiveName, FileOpenMode::Read);
     if (m_ArchiveReader == nullptr)
     {
         std::cout << "Unable to open archive " << a_ArchiveName << " for reading!" << std::endl;
@@ -239,7 +239,7 @@ size_t Hako::DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset,
 {
     std::vector<char> data{};
 
-    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, IFile::FileOpenMode::Read);
+    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, FileOpenMode::Read);
     if(!file)
     {
         std::cout << "Unable to open file " << a_FileName << " for reading" << std::endl;
@@ -279,7 +279,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(const FileName_t& a_FileNa
     }
 
     // Try to open the file
-    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, IFile::FileOpenMode::Read);
+    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, FileOpenMode::Read);
 
     if (file == nullptr)
     {

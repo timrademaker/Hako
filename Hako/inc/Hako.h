@@ -18,7 +18,7 @@ namespace hako
         using FileName_t = std::string;
     private:
         using FileCount_t = uint32_t;
-        using FileFactorySignature = std::function<std::unique_ptr<IFile>(const FileName_t& a_FilePath, IFile::FileOpenMode a_FileOpenMode)>;
+        using FileFactorySignature = std::function<std::unique_ptr<IFile>(const FileName_t& a_FilePath, FileOpenMode a_FileOpenMode)>;
 
         static constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
         static constexpr uint8_t HeaderVersion = 2;
