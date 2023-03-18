@@ -36,70 +36,91 @@ namespace hako
         s_FileFactory = std::move(a_FileFactory);
     }
 
-    /**
-     * If no serializer can be found for a certain file, simply copy its content to the archive
-     * @param a_Archive The archive to serialize to
-     * @param a_ArchiveWriteOffset The offset in the archive at which to start writing
-     * @param a_FileName The file to serialize
-     * @return The number of bytes written
-     */
-    size_t DefaultSerializeFile(IFile* a_Archive, size_t a_ArchiveWriteOffset, char const* a_FileName)
+    void HashFilePath(char const* a_FilePath, char* out_buffer, size_t out_buffer_len)
     {
-        std::vector<char> data{};
+        snprintf(out_buffer, out_buffer_len, "%zX", std::filesystem::hash_value(a_FilePath));
+    }
 
-        std::unique_ptr<IFile> const file = s_FileFactory(a_FileName, FileOpenMode::Read);
-        if (!file)
+    void EnsureIntermediateDirectoryExists(std::filesystem::path& a_Directory)
+    {
+        static bool createdIntermediateDirectory = false;
+        if (!createdIntermediateDirectory)
         {
-            std::cout << "Unable to open file " << a_FileName << " for reading" << std::endl;
-            return 0;
+            std::filesystem::create_directories(a_Directory);
+            createdIntermediateDirectory = true;
         }
+    }
 
-        const size_t fileSize = file->GetFileSize();
-        size_t bytesRead = 0;
+    std::filesystem::path GetIntermediateDirectoryPath(Platform a_TargetPlatform, char const* a_IntermediateDirectory)
+    {
+        std::filesystem::path intermediateFilePath(a_IntermediateDirectory);
+        intermediateFilePath.append(GetPlatformName(a_TargetPlatform));
 
-        while (bytesRead < fileSize)
-        {
-            size_t bytesToRead = std::min(fileSize - bytesRead, WriteChunkSize);
-            data.clear();
-            data.resize(bytesToRead);
+        EnsureIntermediateDirectoryExists(intermediateFilePath);
 
-            if (!file->Read(bytesToRead, bytesRead, data))
-            {
-                std::cout << "Unable to serialize file " << a_FileName << std::endl;
-                return 0;
-            }
-            bytesRead += bytesToRead;
+        return intermediateFilePath;
+    }
 
-            a_Archive->Write(a_ArchiveWriteOffset, data);
-            a_ArchiveWriteOffset += bytesToRead;
-        }
+    std::filesystem::path GetIntermediateFilePath(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    {
+        assert(a_IntermediateDirectory);
+        assert(a_FilePath);
 
-        return fileSize;
+        std::filesystem::path intermediateFilePath = GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory);
+        EnsureIntermediateDirectoryExists(intermediateFilePath);
+
+        char fileHashHex[Hako::FileInfo::MaxFilePathHashLength]{};
+        HashFilePath(a_FilePath, fileHashHex, sizeof(fileHashHex));
+
+        intermediateFilePath.append(fileHashHex);
+
+        return intermediateFilePath.generic_string();
     }
 
     /**
-     * Serialize a file into the archive
+     * Copy a file into the archive
      * @param a_Archive The archive to write to
-     * @param a_FileInfo File info for the file that should be serialized into the archive
-     * @param a_TargetPlatform The platform for which to serialize the file
+     * @param a_IntermediateDirectory The directory in which intermediate assets are located
+     * @param a_FilePath The path of the file to archive
+     * @param a_FileInfo File info for the file that should be copied into the archive
+     * @param a_TargetPlatform The target platform
      * @return The number of bytes written
      */
-    size_t SerializeFile(IFile* a_Archive, Hako::FileInfo const& a_FileInfo, Platform a_TargetPlatform)
+    size_t ArchiveFile(IFile* a_Archive, char const* a_IntermediateDirectory, char const* a_FilePath, Hako::FileInfo const& a_FileInfo, Platform a_TargetPlatform)
     {
-        IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileInfo.m_Name, a_TargetPlatform);
+        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
+        if(!std::filesystem::exists(intermediatePath))
+        {
+            return 0;
+        }
 
-        if (serializer != nullptr)
+        auto const intermediateFile = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
+        if(!intermediateFile)
         {
-            std::vector<char> data{};
-            const size_t serializedByteCount = serializer->SerializeFile(a_FileInfo.m_Name, a_TargetPlatform, data);
-            data.resize(serializedByteCount);
-            a_Archive->Write(a_FileInfo.m_Offset, data);
-            return serializedByteCount;
+            return 0;
         }
-        else
+
+        auto const fileSize = intermediateFile->GetFileSize();
+        size_t bytesRead = 0;
+        std::vector<char> data{};
+
+        while (bytesRead < fileSize)
         {
-            return DefaultSerializeFile(a_Archive, a_FileInfo.m_Offset, a_FileInfo.m_Name);
+            size_t const bytesToRead = std::min(fileSize - bytesRead, WriteChunkSize);
+            data.clear();
+            data.resize(bytesToRead);
+
+            if (!intermediateFile->Read(bytesToRead, bytesRead, data))
+            {
+                std::cout << "Unable to archive file " << a_FilePath << std::endl;
+                return 0;
+            }
+
+            a_Archive->Write(a_FileInfo.m_Offset + bytesRead, data);
+            bytesRead += bytesToRead;
         }
+
+        return bytesRead;
     }
 
     /**
@@ -118,7 +139,7 @@ namespace hako
         for (size_t i = 0; i < a_NumBytes; ++i)
         {
             buffer[i] = *data;
-            data++;
+            ++data;
         }
 
         if (!a_Archive->Write(a_WriteOffset, buffer))
@@ -128,28 +149,27 @@ namespace hako
         }
     }
 
-    bool CreateArchive(std::vector<std::string>& a_FileNames, Platform a_TargetPlatform, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
+    bool CreateArchive(char const* a_IntermediateDirectory, Platform a_TargetPlatform, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
     {
-        if (!a_OverwriteExistingFile)
+        if(a_IntermediateDirectory == nullptr)
         {
-            // Check if the file already exists
-            if (s_FileFactory(a_ArchiveName, FileOpenMode::Read) != nullptr)
-            {
-                // The file already exists
-#ifndef HAKO_STANDALONE
-                return false;
-#else
-                char response = 0;
-                std::cout << "The file " << a_ArchiveName << " already exists. Overwrite?" << std::endl << "(Y/N): ";
-                std::cin >> response;
-                if (response != 'Y' && response != 'y')
-                {
-                    std::cout << "Not creating archive " << a_ArchiveName << " as the file already exists" << std::endl;
-                    return false;
-                }
-                std::cout << "Overwriting existing archive " << a_ArchiveName << std::endl;
-#endif
-            }
+            std::cout << "No intermediate directory specified for archive creation" << std::endl;
+            assert(a_IntermediateDirectory != nullptr);
+            return false;
+        }
+
+        if (a_ArchiveName == nullptr)
+        {
+            std::cout << "No archive path specified for archive creation" << std::endl;
+            assert(a_ArchiveName != nullptr);
+            return false;
+        }
+
+        if (!a_OverwriteExistingFile && std::filesystem::exists(a_ArchiveName))
+        {
+            // The archive already exists, and we don't want to overwrite it
+            std::cout << "Failed to create archive " << a_ArchiveName << " - file already exists" << std::endl;
+            return false;
         }
 
         std::unique_ptr<IFile> archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
@@ -160,31 +180,58 @@ namespace hako
             return false;
         }
 
+        struct HashFileNamePair
+        {
+            HashFileNamePair(std::filesystem::path const& a_FilePath)
+                : m_FilePath(a_FilePath.generic_string())
+            {
+                strncpy_s(m_FilePathHash, sizeof(m_FilePathHash), a_FilePath.filename().generic_string().c_str(), Hako::FileInfo::MaxFilePathHashLength);
+            }
+
+            std::string m_FilePath{};
+            char m_FilePathHash[Hako::FileInfo::MaxFilePathHashLength]{};
+        };
+
+        std::vector<HashFileNamePair> filePaths;
+        filePaths.reserve(256);
+
+        for (const std::filesystem::directory_entry& dirEntry :
+            std::filesystem::recursive_directory_iterator(GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory), std::filesystem::directory_options::skip_permission_denied))
+        {
+            if (dirEntry.is_regular_file())
+            {
+                filePaths.emplace_back(dirEntry.path());
+            }
+        }
+
         size_t archiveInfoBytesWritten = 0;
 
         {
             HakoHeader header;
-            header.m_FileCount = a_FileNames.size();
+            header.m_FileCount = filePaths.size();
             WriteToArchive(archive.get(), &header, sizeof(HakoHeader), archiveInfoBytesWritten);
             archiveInfoBytesWritten += sizeof(HakoHeader);
         }
 
-        // Sort file names alphabetically
-        std::sort(a_FileNames.begin(), a_FileNames.end());
+        // Sort file hashes alphabetically
+        std::sort(filePaths.begin(), filePaths.end(), [](HashFileNamePair const& a_Lhs, HashFileNamePair const& a_Rhs)
+            {
+                return strcmp(a_Lhs.m_FilePathHash, a_Rhs.m_FilePathHash) < 0;
+            }
+        );
 
         size_t totalFileSize = 0;
 
         // Create FileInfo objects and serialize file content to archive
-        for (size_t fileIndex = 0; fileIndex < a_FileNames.size(); ++fileIndex)
+        for (size_t fileIndex = 0; fileIndex < filePaths.size(); ++fileIndex)
         {
-            std::unique_ptr<IFile> currentFile = s_FileFactory(a_FileNames[fileIndex].c_str(), FileOpenMode::Read);
+            std::unique_ptr<IFile> currentFile = s_FileFactory(filePaths[fileIndex].m_FilePath.c_str(), FileOpenMode::Read);
 
             Hako::FileInfo fi{};
-            strcpy_s(fi.m_Name, Hako::FileInfo::MaxFileNameLength, a_FileNames[fileIndex].c_str());
-            fi.m_Offset = sizeof(HakoHeader) + sizeof(Hako::FileInfo) * a_FileNames.size() + totalFileSize;
+            strncpy_s(fi.m_FilePathHash, sizeof(fi.m_FilePathHash), filePaths[fileIndex].m_FilePathHash, Hako::FileInfo::MaxFilePathHashLength);
+            fi.m_Offset = sizeof(HakoHeader) + sizeof(Hako::FileInfo) * filePaths.size() + totalFileSize;
 
-            // Serialize file into the archive
-            fi.m_Size = SerializeFile(archive.get(), fi, a_TargetPlatform);
+            fi.m_Size = ArchiveFile(archive.get(), a_IntermediateDirectory, filePaths[fileIndex].m_FilePath.c_str(), fi, a_TargetPlatform);
             totalFileSize += fi.m_Size;
 
             // Write file info to the archive
@@ -194,16 +241,105 @@ namespace hako
 
         return true;
     }
+
+    /**
+     * If no serializer can be found for a certain file, simply copy its content to the intermediate directory
+     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
+     * @param a_FilePath The file to serialize
+     * @param a_TargetPlatform The asset's target platform
+     * @return True if the file was successfully copied
+     */
+    bool DefaultSerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    {
+        assert(a_IntermediateDirectory);
+        assert(a_FilePath);
+
+        std::error_code ec;
+        std::filesystem::copy_file(a_FilePath, GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath), std::filesystem::copy_options::update_existing, ec);
+        return ec.value() == 0;
+    }
+
+    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, char const* a_FileExt)
+    {
+        assert(a_Path);
+        assert(a_IntermediateDirectory);
+
+        if (std::filesystem::is_directory(a_Path))
+        {
+            return SerializeDirectory(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_FileExt);
+        }
+        else if (std::filesystem::is_regular_file(a_Path))
+        {
+            return SerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_Path);
+        }
+
+        return false;
+    }
+
+    bool SerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    {
+        assert(a_IntermediateDirectory);
+        assert(a_FilePath);
+
+        IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FilePath, a_TargetPlatform);
+
+        if (serializer != nullptr)
+        {
+            std::vector<char> data{};
+            const size_t serializedByteCount = serializer->SerializeFile(a_FilePath, a_TargetPlatform, data);
+            data.resize(serializedByteCount);
+
+            auto const intermediateFile = s_FileFactory(GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath).generic_string().c_str(), FileOpenMode::WriteTruncate);
+            return intermediateFile->Write(0, data);
+        }
+        
+        return DefaultSerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
+    }
+
+    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Directory, char const* a_FileExt)
+    {
+        assert(a_IntermediateDirectory);
+        assert(a_Directory);
+
+        std::string fileExtension{};
+        if (a_FileExt)
+        {
+            fileExtension = a_FileExt;
+
+            // Ensure that the file extension we receive starts with a "."
+            if (a_FileExt[0] != '.')
+            {
+                fileExtension = "." + fileExtension;
+            }
+        }
+
+        bool success = true;
+
+        for (const std::filesystem::directory_entry& dirEntry :
+            std::filesystem::recursive_directory_iterator(a_Directory, std::filesystem::directory_options::skip_permission_denied))
+        {
+            if(dirEntry.is_regular_file() && (a_FileExt == nullptr || dirEntry.path().extension() == fileExtension))
+            {
+                if(!SerializeFile(a_TargetPlatform, a_IntermediateDirectory, dirEntry.path().generic_string().c_str()))
+                {
+                    success = false;
+                }
+            }
+        }
+
+        return success;
+    }
 }
 
 using namespace hako;
 
-bool Hako::OpenArchive(char const* a_ArchiveName)
+Hako::Hako(char const* a_ArchiveName, char const* a_IntermediateDirectory)
 {
     m_OpenedFiles.clear();
     m_FilesInArchive.clear();
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_OpenedFilesOutsideArchive.clear();
+    m_IntermediateDirectory = std::string(a_IntermediateDirectory);
 #endif
     
     // Open archive
@@ -212,7 +348,7 @@ bool Hako::OpenArchive(char const* a_ArchiveName)
     {
         std::cout << "Unable to open archive " << a_ArchiveName << " for reading!" << std::endl;
         assert(m_ArchiveReader == nullptr);
-        return false;
+        return;
     }
 
     std::vector<char> buffer{};
@@ -224,14 +360,14 @@ bool Hako::OpenArchive(char const* a_ArchiveName)
     {
         std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
         assert(false);
-        return false;
+        return;
     }
 
     if(header.m_HeaderVersion != HeaderVersion)
     {
         std::cout << "Archive version mismatch. The archive should be rebuilt." << std::endl;
         assert(false);
-        return false;
+        return;
     }
     
     buffer.reserve(sizeof(FileInfo));
@@ -247,8 +383,6 @@ bool Hako::OpenArchive(char const* a_ArchiveName)
 
         m_FilesInArchive.push_back(*reinterpret_cast<FileInfo*>(buffer.data()));
     }
-
-    return true;
 }
 
 void hako::Hako::LoadAllFiles()
@@ -296,11 +430,14 @@ void Hako::SetCurrentPlatform(Platform a_Platform)
 const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
 {
     assert(!m_FilesInArchive.empty());
+
+    char filePathHash[Hako::FileInfo::MaxFilePathHashLength]{};
+    HashFilePath(a_FileName, filePathHash, Hako::FileInfo::MaxFilePathHashLength);
     
     // Find file (assumes that file names were sorted before this)
-    auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), a_FileName, [](FileInfo const& a_Lhs, char const* a_Rhs)
+    auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), filePathHash, [](FileInfo const& a_Lhs, char const* a_Rhs)
         {
-            return strcmp(a_Lhs.m_Name, a_Rhs) < 0;
+            return strcmp(a_Lhs.m_FilePathHash, a_Rhs) < 0;
         }
     );
 
@@ -316,8 +453,12 @@ const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
 
 const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
 {
+    // TODO(tim): Stop serializing stuff here, read from intermediate instead
+    char fileNameHash[Hako::FileInfo::MaxFilePathHashLength]{};
+    HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
+
     // Check if the file has already been opened
-    auto const openedFile = m_OpenedFilesOutsideArchive.find(a_FileName);
+    auto const openedFile = m_OpenedFilesOutsideArchive.find(fileNameHash);
     if (openedFile != m_OpenedFilesOutsideArchive.end())
     {
         return &openedFile->second;
@@ -364,7 +505,7 @@ const std::vector<char>* Hako::LoadFileContent(const FileInfo& a_FileInfo)
 {
     // Check if the file has already been read
     {
-        const auto openedFile = m_OpenedFiles.find(a_FileInfo.m_Name);
+        const auto openedFile = m_OpenedFiles.find(a_FileInfo.m_FilePathHash);
         if (openedFile != m_OpenedFiles.end())
         {
             return &openedFile->second;
@@ -372,7 +513,7 @@ const std::vector<char>* Hako::LoadFileContent(const FileInfo& a_FileInfo)
     }
 
     // Add a new entry for this file
-    std::vector<char>& data = m_OpenedFiles[a_FileInfo.m_Name];
+    std::vector<char>& data = m_OpenedFiles[a_FileInfo.m_FilePathHash];
     if (!data.empty())
     {
         return &data;

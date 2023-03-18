@@ -99,7 +99,7 @@ void hako::SerializerList::FindDllFilesInWorkingDirectory(std::vector<std::wstri
     auto fileHandle = FindFirstFileW(L"*.dll", &fileData);
     if (fileHandle == INVALID_HANDLE_VALUE)
     {
-        std::cout << "No DLLs found in working directory" << std::endl;
+        std::cout << "No serialization DLLs found in working directory" << std::endl;
         return;
     }
 

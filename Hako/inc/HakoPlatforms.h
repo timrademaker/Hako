@@ -43,5 +43,10 @@ namespace hako
         return Platform::Invalid;
     }
 
+    inline const char* GetPlatformName(Platform a_Platform)
+    {
+        return PlatformNames[static_cast<uint8_t>(a_Platform)];
+    }
+
 #undef HAKO_PLATFORMS
 }
