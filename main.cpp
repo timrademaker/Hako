@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 
     std::vector<std::string> files;
     std::string platformName{};
-    std::string archiveName{};
+    char const* archiveName = nullptr;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -31,11 +31,11 @@ int main(int argc, char* argv[])
                 ++i;
             }
         }
-        else if (archiveName.empty() && strcmp(argv[i], "--out_path") == 0)
+        else if (archiveName == nullptr && strcmp(argv[i], "--out_path") == 0)
         {
             if (i + 1 < argc)
             {
-                archiveName = std::string(argv[i + 1]);
+                archiveName = argv[i + 1];
             }
         }
         else if (strcmp(argv[i], "--files") == 0)
@@ -62,14 +62,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    const bool success = Hako::CreateArchive(files, archivePlatform, archiveName);
+    const bool success = hako::CreateArchive(files, archivePlatform, archiveName);
     if (success)
     {
-        printf("Successfully created archive %s\n", archiveName.c_str());
+        printf("Successfully created archive %s\n", archiveName);
     }
     else
     {
-        printf("Failed to create archive %s\n", archiveName.c_str());
+        printf("Failed to create archive %s\n", archiveName);
     }
 
     return success ? 0 : 1;
