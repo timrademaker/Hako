@@ -37,7 +37,8 @@ void PrintAvailablePlatforms(char const* separator)
 
 void PrintHelp()
 {
-    printf(R"""(Available flags:
+    printf(R"""(
+Available flags:
     --help
         Print this help message and quit
 
@@ -50,6 +51,9 @@ void PrintHelp()
     --ext <file_extension>
         When specified, only serialize files with this extension
         Does not apply to files explicitly specified with --serialize
+
+    --force_serialization
+        When used, serialize files regardless of whether they were changed since they were last serialized
 
     --platform <platform_name>
         Specify the platform to serialize the assets for
@@ -69,11 +73,13 @@ printf(R"""(
 
 )""");
 
-    printf(R"""(Example usage:
+    printf(R"""(
+Example usage:
     Hako --platform Windows --serialize Assets/Models Assets/Textures --intermediate_dir intermediate
     Hako --platform Windows --serialize Assets --ext gltf --intermediate_dir intermediate
     Hako --intermediate_dir intermediate --archive arc.bin --overwrite_archive
-    Hako --platform Windows --serialize Assets --intermediate_dir intermediate --archive arc.bin --overwrite_archive)""");
+    Hako --platform Windows --serialize Assets --intermediate_dir intermediate --archive arc.bin --overwrite_archive
+)""");
 }
 
 int main(int argc, char* argv[])
@@ -90,6 +96,8 @@ int main(int argc, char* argv[])
     char const* archivePath = nullptr;
     // If true, the archive at archivePath is overwritten if it exists
     bool overwriteExistingArchive = false;
+    // If true, serialize files regardless of when they were last serialized
+    bool forceSerialization = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -121,6 +129,10 @@ int main(int argc, char* argv[])
         else if(strcmp(argv[i], "--overwrite_archive") == 0)
         {
             overwriteExistingArchive = true;
+        }
+        else if(strcmp(argv[i], "--force_serialization") == 0)
+        {
+            forceSerialization = true;
         }
         else if(strcmp(argv[i], "--help") == 0)
         {
@@ -160,7 +172,7 @@ int main(int argc, char* argv[])
 
     for (auto const& path : pathsToSerialize)
     {
-        if (hako::Serialize(targetPlatform, intermediateDirectory, path, fileExtensionToSerialize))
+        if (hako::Serialize(targetPlatform, intermediateDirectory, path, forceSerialization, fileExtensionToSerialize))
         {
             printf("Successfully serialized %s\n", path);
         }
@@ -174,7 +186,7 @@ int main(int argc, char* argv[])
     // Only create an archive if we have an archive path and nothing before this failed
     if (archivePath && success)
     {
-        success = hako::CreateArchive(intermediateDirectory, targetPlatform, archivePath, overwriteExistingArchive);
+        success = hako::CreateArchive(targetPlatform, intermediateDirectory, archivePath, overwriteExistingArchive);
         if (success)
         {
             printf("Successfully created archive %s\n", archivePath);

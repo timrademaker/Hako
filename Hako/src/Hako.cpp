@@ -6,6 +6,10 @@
 #include <cassert>
 #include <iostream>
 
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+#include <filesystem>
+#endif
+
 namespace hako
 {
     constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
@@ -141,7 +145,7 @@ namespace hako
         }
     }
 
-    bool CreateArchive(char const* a_IntermediateDirectory, Platform a_TargetPlatform, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
+    bool CreateArchive(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
     {
         if(a_IntermediateDirectory == nullptr)
         {
@@ -251,28 +255,32 @@ namespace hako
         return ec.value() == 0;
     }
 
-    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, char const* a_FileExt)
-    {
-        assert(a_Path);
-        assert(a_IntermediateDirectory);
-
-        if (std::filesystem::is_directory(a_Path))
-        {
-            return SerializeDirectory(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_FileExt);
-        }
-        else if (std::filesystem::is_regular_file(a_Path))
-        {
-            return SerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_Path);
-        }
-
-        return false;
-    }
-
-    bool SerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    /**
+     * Serialize a file into the intermediate directory
+     * @param a_TargetPlatform The platform for which to serialize the file
+     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
+     * @param a_FilePath The file to serialize
+     * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
+     * @return True if the file was serialized successfully
+     */
+    bool SerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath, bool a_ForceSerialization)
     {
         assert(a_IntermediateDirectory);
         assert(a_FilePath);
 
+        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
+
+        if (!a_ForceSerialization && std::filesystem::exists(intermediatePath))
+        {
+            auto const sourceAssetWriteTime = std::filesystem::last_write_time(a_FilePath);
+            auto const intermediateAssetWriteTime = std::filesystem::last_write_time(intermediatePath);
+
+            if(intermediateAssetWriteTime >= sourceAssetWriteTime)
+            {
+                // Skipping serialization for this file, as it hasn't changed since the last time it was serialized
+                return true;
+            }
+        }
         IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FilePath, a_TargetPlatform);
 
         if (serializer != nullptr)
@@ -281,14 +289,23 @@ namespace hako
             const size_t serializedByteCount = serializer->SerializeFile(a_FilePath, a_TargetPlatform, data);
             data.resize(serializedByteCount);
 
-            auto const intermediateFile = s_FileFactory(GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath).generic_string().c_str(), FileOpenMode::WriteTruncate);
+            auto const intermediateFile = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::WriteTruncate);
             return intermediateFile->Write(0, data);
         }
         
         return DefaultSerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
     }
 
-    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Directory, char const* a_FileExt)
+    /**
+     * Serialize all files in a directory into the intermediate directory
+     * @param a_TargetPlatform The platform for which to serialize the file
+     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
+     * @param a_Directory The directory to serialize
+     * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
+     * @param a_FileExt When set, only serialize assets with the given file extension
+     * @return True if all files were serialized successfully
+     */
+    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Directory, bool a_ForceSerialization, char const* a_FileExt)
     {
         assert(a_IntermediateDirectory);
         assert(a_Directory);
@@ -312,7 +329,7 @@ namespace hako
         {
             if(dirEntry.is_regular_file() && (a_FileExt == nullptr || dirEntry.path().extension() == fileExtension))
             {
-                if(!SerializeFile(a_TargetPlatform, a_IntermediateDirectory, dirEntry.path().generic_string().c_str()))
+                if(!SerializeFile(a_TargetPlatform, a_IntermediateDirectory, dirEntry.path().generic_string().c_str(), a_ForceSerialization))
                 {
                     success = false;
                 }
@@ -321,29 +338,45 @@ namespace hako
 
         return success;
     }
+
+    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, bool a_ForceSerialization, char const* a_FileExt)
+    {
+        assert(a_Path);
+        assert(a_IntermediateDirectory);
+
+        if (std::filesystem::is_directory(a_Path))
+        {
+            return SerializeDirectory(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_ForceSerialization, a_FileExt);
+        }
+        else if (std::filesystem::is_regular_file(a_Path))
+        {
+            return SerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_ForceSerialization);
+        }
+
+        return false;
+    }
 }
 
 using namespace hako;
 
-Hako::Hako(char const* a_ArchiveName, char const* a_IntermediateDirectory)
+Hako::Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory)
 {
     m_OpenedFiles.clear();
     m_FilesInArchive.clear();
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_OpenedFilesOutsideArchive.clear();
     m_IntermediateDirectory = std::string(a_IntermediateDirectory);
+    m_LastWriteTimestamp = std::filesystem::last_write_time(a_ArchivePath).time_since_epoch().count();
 #endif
     
     // Open archive
-    m_ArchiveReader = s_FileFactory(a_ArchiveName, FileOpenMode::Read);
+    m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
     if (m_ArchiveReader == nullptr)
     {
-        std::cout << "Unable to open archive " << a_ArchiveName << " for reading!" << std::endl;
+        std::cout << "Unable to open archive " << a_ArchivePath << " for reading!" << std::endl;
         assert(m_ArchiveReader == nullptr);
         return;
     }
-
-    m_LastWriteTimestamp = m_ArchiveReader->GetLastWriteTime();
 
     std::vector<char> buffer{};
     buffer.resize(sizeof(HakoHeader));
@@ -418,7 +451,9 @@ void Hako::CloseFile(char const* a_FileName)
 
 void Hako::SetCurrentPlatform(Platform a_Platform)
 {
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_CurrentPlatform = a_Platform;
+#endif
 }
 
 const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
@@ -447,10 +482,18 @@ const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
 
 const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
 {
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     char fileNameHash[Hako::FileInfo::MaxFilePathHashLength]{};
     HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
 
     auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, m_IntermediateDirectory.c_str(), a_FileName);
+
+    auto const lastIntermediateFileWriteTime = std::filesystem::last_write_time(intermediatePath).time_since_epoch().count();
+    if (lastIntermediateFileWriteTime <= m_LastWriteTimestamp)
+    {
+        // File hasn't been updated since the archive was created, so we can just read it from the archive
+        return nullptr;
+    }
 
     // Try to open the file
     std::unique_ptr<IFile> file = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
@@ -461,19 +504,14 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
         return nullptr;
     }
 
-    auto const lastIntermediateFileWriteTime = file->GetLastWriteTime();
-    if(lastIntermediateFileWriteTime <= m_LastWriteTimestamp)
-    {
-        // File hasn't been updated since the archive was created, so we can just read it from the archive
-        return nullptr;
-    }
-
     // Check if the file has already been opened and didn't change since then
     auto const openedFile = m_OpenedFilesOutsideArchive.find(fileNameHash);
     if (openedFile != m_OpenedFilesOutsideArchive.end() && openedFile->second.m_LastWriteTime >= lastIntermediateFileWriteTime)
     {
         return &openedFile->second.m_Data;
     }
+
+    openedFile->second.m_LastWriteTime = std::filesystem::last_write_time(intermediatePath).time_since_epoch().count();
 
     std::vector<char>& data = m_OpenedFilesOutsideArchive[fileNameHash].m_Data;
 
@@ -485,6 +523,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
     {
         return &data;
     }
+#endif
 
     return nullptr;
 }

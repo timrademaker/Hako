@@ -22,51 +22,27 @@ namespace hako
 
     /**
      * Create an archive
-     * @param a_IntermediateDirectory The directory in which intermediate assets are located
      * @param a_TargetPlatform The platform for which to create the archive
+     * @param a_IntermediateDirectory The directory in which intermediate assets are located
      * @param a_ArchiveName The name of the archive to output
      * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
      * @return True if the archive was created successfully
      */
-    bool CreateArchive(char const* a_IntermediateDirectory, Platform a_TargetPlatform, char const* a_ArchiveName, bool a_OverwriteExistingFile = false);
+    bool CreateArchive(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_ArchiveName, bool a_OverwriteExistingFile = false);
 
     /**
      * Serialize a file or the content of a directory into the intermediate directory
      * @param a_TargetPlatform The platform for which to serialize the file
      * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
      * @param a_Path The file or directory to serialize
+     * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
      * @param a_FileExt When set, only serialize assets with the given file extension if a_Path is a directory
      * @return True if the file was serialized successfully
      */
-    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, char const* a_FileExt = nullptr);
-
-    /**
-     * Serialize a file into the intermediate directory
-     * @param a_TargetPlatform The platform for which to serialize the file
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
-     * @param a_FilePath The file to serialize
-     * @return True if the file was serialized successfully
-     */
-    bool SerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath);
-
-    /**
-     * Serialize all files in a directory into the intermediate directory
-     * @param a_TargetPlatform The platform for which to serialize the file
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
-     * @param a_Directory The directory to serialize
-     * @param a_FileExt When set, only serialize assets with the given file extension
-     * @return True if all files were serialized successfully
-     */
-    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Directory, char const* a_FileExt = nullptr);
+    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, bool a_ForceSerialization = false, char const* a_FileExt = nullptr);
 
     class Hako final
     {
-        struct OpenedIntermediateFile
-        {
-            std::vector<char> m_Data;
-            time_t m_LastWriteTime = 0;
-        };
-
     public:
         struct FileInfo
         {
@@ -80,10 +56,10 @@ namespace hako
     public:
         /**
          * Open an archive for reading
-         * @param a_ArchiveName The name of the archive to open
+         * @param a_ArchivePath The path to the archive to open
          * @param a_IntermediateDirectory The directory in which intermediate files are located. Used when intermediate file reading is enabled.
          */
-        Hako(char const* a_ArchiveName, char const* a_IntermediateDirectory = nullptr);
+        Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr);
         ~Hako() = default;
 
         Hako(Hako&) = delete;
@@ -158,16 +134,24 @@ namespace hako
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
 
+#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
+        struct OpenedIntermediateFile
+        {
+            std::vector<char> m_Data;
+            size_t m_LastWriteTime = 0;
+        };
+
         /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
         std::map<std::string, OpenedIntermediateFile> m_OpenedFilesOutsideArchive;
         /** The intermediate asset directory. Only needs to be set when reading outside of the archive */
         std::string m_IntermediateDirectory{};
 
         /** Timestamp of the last time the archive was modified when we opened it */
-        time_t m_LastWriteTimestamp = 0;
+        size_t m_LastWriteTimestamp = 0;
 
         /** The platform that Hako is currently being used on. Only used when reading outside of the archive. */
         Platform m_CurrentPlatform = Platform::Windows;
+#endif
     };
 
     template<typename Serializer>

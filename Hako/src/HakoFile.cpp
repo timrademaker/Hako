@@ -30,8 +30,6 @@ bool HakoFile::Open(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
 
 	m_FileHandle = std::make_unique<std::fstream>(a_FilePath, openFlags);
 
-	m_FilePath = a_FilePath;
-
 	return m_FileHandle->good();
 }
 
@@ -52,13 +50,6 @@ size_t HakoFile::GetFileSize()
 	m_FileHandle->seekg(0, std::ios_base::end);
 
 	return m_FileHandle->tellg();
-}
-
-time_t HakoFile::GetLastWriteTime()
-{
-	// Who came up with last_write_time's epoch?
-	auto const lastWriteTime = std::filesystem::last_write_time(m_FilePath);
-	return lastWriteTime.time_since_epoch().count();
 }
 
 bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)

@@ -42,12 +42,5 @@ namespace hako
          * @return The size of the file (in bytes)
          */
         virtual size_t GetFileSize() = 0;
-
-        /**
-         * Get the time at which the file was last written to
-         * Only needed to compare archive creation time with intermediate file write time
-         * @return A timestamp representing the last write time of the file
-         */
-        virtual time_t GetLastWriteTime() { return 0; }
     };
 }
