@@ -46,7 +46,7 @@ Available flags:
         Path to the intermediate asset directory. Required for both serialization and archive creation.
 
     --serialize <path_to_serialize> [<path_to_serialize>...]
-        Specify paths of files or directories to serialize.
+        Specify paths of files or directories to serialize. Should be relative to your working directory.
 
     --ext <file_extension>
         When specified, only serialize files with this extension
@@ -82,7 +82,7 @@ Example usage:
 )""");
 }
 
-int main(int argc, char* argv[])
+struct CommandLineParams
 {
     // The name of the platform we're serializing or archiving files for
     std::string platformName{};
@@ -98,71 +98,100 @@ int main(int argc, char* argv[])
     bool overwriteExistingArchive = false;
     // If true, serialize files regardless of when they were last serialized
     bool forceSerialization = false;
+    // If true, a help message should be printed
+    bool m_ShouldPrintHelp = false;
+};
+
+CommandLineParams ParseCommandLineParams(int argc, char* argv[])
+{
+    CommandLineParams params;
 
     for (int i = 1; i < argc; ++i)
     {
-        if (platformName.empty() && strcmp(argv[i], "--platform") == 0)
+        if (params.platformName.empty() && strcmp(argv[i], "--platform") == 0)
         {
-            platformName = GetFlagValue(i, argc, argv);
+            params.platformName = GetFlagValue(i, argc, argv);
         }
-        else if (archivePath == nullptr && strcmp(argv[i], "--archive") == 0)
+        else if (params.archivePath == nullptr && strcmp(argv[i], "--archive") == 0)
         {
-            archivePath = GetFlagValue(i, argc, argv);
+            params.archivePath = GetFlagValue(i, argc, argv);
         }
-        else if(intermediateDirectory == nullptr && strcmp(argv[i], "--intermediate_dir") == 0)
+        else if (params.intermediateDirectory == nullptr && strcmp(argv[i], "--intermediate_dir") == 0)
         {
-            intermediateDirectory = GetFlagValue(i, argc, argv);
+            params.intermediateDirectory = GetFlagValue(i, argc, argv);
         }
-        else if (pathsToSerialize.empty() && strcmp(argv[i], "--serialize") == 0)
+        else if (params.pathsToSerialize.empty() && strcmp(argv[i], "--serialize") == 0)
         {
             // Everything until the next flag is a file or folder path
             while (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                pathsToSerialize.emplace_back(argv[i + 1]);
+                params.pathsToSerialize.emplace_back(argv[i + 1]);
                 ++i;
             }
         }
-        else if(fileExtensionToSerialize == nullptr && strcmp(argv[i], "--ext") == 0)
+        else if (params.fileExtensionToSerialize == nullptr && strcmp(argv[i], "--ext") == 0)
         {
-            fileExtensionToSerialize = GetFlagValue(i, argc, argv);
+            params.fileExtensionToSerialize = GetFlagValue(i, argc, argv);
         }
-        else if(strcmp(argv[i], "--overwrite_archive") == 0)
+        else if (strcmp(argv[i], "--overwrite_archive") == 0)
         {
-            overwriteExistingArchive = true;
+            params.overwriteExistingArchive = true;
         }
-        else if(strcmp(argv[i], "--force_serialization") == 0)
+        else if (strcmp(argv[i], "--force_serialization") == 0)
         {
-            forceSerialization = true;
+            params.forceSerialization = true;
         }
-        else if(strcmp(argv[i], "--help") == 0)
+        else if (strcmp(argv[i], "--help") == 0)
         {
-            PrintHelp();
-            return EXIT_SUCCESS;
+            params.m_ShouldPrintHelp = true;
         }
     }
 
-    if(intermediateDirectory == nullptr)
+    return params;
+}
+
+bool VerifyCommandLineParameters(CommandLineParams const& a_Params)
+{
+    if (a_Params.intermediateDirectory == nullptr)
     {
         printf("No intermediate directory specified. Use --help for more info.\n");
-        return EXIT_FAILURE;
+        return false;
     }
 
-    if (platformName.empty())
+    if (a_Params.platformName.empty())
     {
         printf("No platform name specified. Use --help for more info.\n");
-        return EXIT_FAILURE;
+        return false;
     }
 
-    if (!archivePath && pathsToSerialize.empty())
+    if (!a_Params.archivePath && a_Params.pathsToSerialize.empty())
     {
         printf("No archive path or paths to serialize specified. Use --help for more info.\n");
+        return false;
+    }
+
+    return true;
+}
+
+int main(int argc, char* argv[])
+{
+    auto const params = ParseCommandLineParams(argc, argv);
+
+    if(params.m_ShouldPrintHelp)
+    {
+        PrintHelp();
+        return EXIT_SUCCESS;
+    }
+
+    if(!VerifyCommandLineParameters(params))
+    {
         return EXIT_FAILURE;
     }
 
-    const hako::Platform targetPlatform = hako::GetPlatformByName(platformName.c_str());
+    const hako::Platform targetPlatform = hako::GetPlatformByName(params.platformName.c_str());
     if (targetPlatform == hako::Platform::Invalid)
     {
-        printf("Invalid platform '%s' specified!\nAvailable platforms:\n", platformName.c_str());
+        printf("Invalid platform '%s' specified!\nAvailable platforms:\n", params.platformName.c_str());
         PrintAvailablePlatforms("\n");
 
         return EXIT_FAILURE;
@@ -170,9 +199,9 @@ int main(int argc, char* argv[])
 
     bool success = true;
 
-    for (auto const& path : pathsToSerialize)
+    for (auto const& path : params.pathsToSerialize)
     {
-        if (hako::Serialize(targetPlatform, intermediateDirectory, path, forceSerialization, fileExtensionToSerialize))
+        if (hako::Serialize(targetPlatform, params.intermediateDirectory, path, params.forceSerialization, params.fileExtensionToSerialize))
         {
             printf("Successfully serialized %s\n", path);
         }
@@ -184,16 +213,16 @@ int main(int argc, char* argv[])
     }
     
     // Only create an archive if we have an archive path and nothing before this failed
-    if (archivePath && success)
+    if (params.archivePath && success)
     {
-        success = hako::CreateArchive(targetPlatform, intermediateDirectory, archivePath, overwriteExistingArchive);
+        success = hako::CreateArchive(targetPlatform, params.intermediateDirectory, params.archivePath, params.overwriteExistingArchive);
         if (success)
         {
-            printf("Successfully created archive %s\n", archivePath);
+            printf("Successfully created archive %s\n", params.archivePath);
         }
         else
         {
-            printf("Failed to create archive %s\n", archivePath);
+            printf("Failed to create archive %s\n", params.archivePath);
         }
     }
 
