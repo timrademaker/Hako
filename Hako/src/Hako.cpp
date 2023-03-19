@@ -80,21 +80,13 @@ namespace hako
     /**
      * Copy a file into the archive
      * @param a_Archive The archive to write to
-     * @param a_IntermediateDirectory The directory in which intermediate assets are located
      * @param a_FilePath The path of the file to archive
      * @param a_FileInfo File info for the file that should be copied into the archive
-     * @param a_TargetPlatform The target platform
      * @return The number of bytes written
      */
-    size_t ArchiveFile(IFile* a_Archive, char const* a_IntermediateDirectory, char const* a_FilePath, Hako::FileInfo const& a_FileInfo, Platform a_TargetPlatform)
+    size_t ArchiveFile(IFile* a_Archive, char const* a_FilePath, Hako::FileInfo const& a_FileInfo)
     {
-        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
-        if(!std::filesystem::exists(intermediatePath))
-        {
-            return 0;
-        }
-
-        auto const intermediateFile = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
+        auto const intermediateFile = s_FileFactory(a_FilePath, FileOpenMode::Read);
         if(!intermediateFile)
         {
             return 0;
@@ -231,7 +223,7 @@ namespace hako
             strncpy_s(fi.m_FilePathHash, sizeof(fi.m_FilePathHash), filePaths[fileIndex].m_FilePathHash, Hako::FileInfo::MaxFilePathHashLength);
             fi.m_Offset = sizeof(HakoHeader) + sizeof(Hako::FileInfo) * filePaths.size() + totalFileSize;
 
-            fi.m_Size = ArchiveFile(archive.get(), a_IntermediateDirectory, filePaths[fileIndex].m_FilePath.c_str(), fi, a_TargetPlatform);
+            fi.m_Size = ArchiveFile(archive.get(), filePaths[fileIndex].m_FilePath.c_str(), fi);
             totalFileSize += fi.m_Size;
 
             // Write file info to the archive
@@ -351,6 +343,8 @@ Hako::Hako(char const* a_ArchiveName, char const* a_IntermediateDirectory)
         return;
     }
 
+    m_LastWriteTimestamp = m_ArchiveReader->GetLastWriteTime();
+
     std::vector<char> buffer{};
     buffer.resize(sizeof(HakoHeader));
     m_ArchiveReader->Read(sizeof(HakoHeader), 0, buffer);
@@ -453,19 +447,13 @@ const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
 
 const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
 {
-    // TODO(tim): Stop serializing stuff here, read from intermediate instead
     char fileNameHash[Hako::FileInfo::MaxFilePathHashLength]{};
     HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
 
-    // Check if the file has already been opened
-    auto const openedFile = m_OpenedFilesOutsideArchive.find(fileNameHash);
-    if (openedFile != m_OpenedFilesOutsideArchive.end())
-    {
-        return &openedFile->second;
-    }
+    auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, m_IntermediateDirectory.c_str(), a_FileName);
 
     // Try to open the file
-    std::unique_ptr<IFile> file = s_FileFactory(a_FileName, FileOpenMode::Read);
+    std::unique_ptr<IFile> file = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
 
     if (file == nullptr)
     {
@@ -473,29 +461,29 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
         return nullptr;
     }
 
-    std::vector<char>& data = m_OpenedFilesOutsideArchive[a_FileName];
-    
-    // Serialize file
-    IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FileName, m_CurrentPlatform);
-    if (serializer != nullptr)
+    auto const lastIntermediateFileWriteTime = file->GetLastWriteTime();
+    if(lastIntermediateFileWriteTime <= m_LastWriteTimestamp)
     {
-        // Close the file to prevent possible issues
-        file = nullptr;
-
-        const size_t serializedByteCount = serializer->SerializeFile(a_FileName, m_CurrentPlatform, data);
-        data.resize(serializedByteCount);
-        return &data;
+        // File hasn't been updated since the archive was created, so we can just read it from the archive
+        return nullptr;
     }
-    else
-    {
-        const size_t fileSize = file->GetFileSize();
-        data.resize(fileSize);
 
-        // Read file content
-        if (file->Read(fileSize, 0, data))
-        {
-            return &data;
-        }
+    // Check if the file has already been opened and didn't change since then
+    auto const openedFile = m_OpenedFilesOutsideArchive.find(fileNameHash);
+    if (openedFile != m_OpenedFilesOutsideArchive.end() && openedFile->second.m_LastWriteTime >= lastIntermediateFileWriteTime)
+    {
+        return &openedFile->second.m_Data;
+    }
+
+    std::vector<char>& data = m_OpenedFilesOutsideArchive[fileNameHash].m_Data;
+
+    // Read intermediate file content
+    const size_t fileSize = file->GetFileSize();
+    data.resize(fileSize);
+
+    if (file->Read(fileSize, 0, data))
+    {
+        return &data;
     }
 
     return nullptr;

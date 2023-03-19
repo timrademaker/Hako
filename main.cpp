@@ -52,7 +52,7 @@ void PrintHelp()
         Does not apply to files explicitly specified with --serialize
 
     --platform <platform_name>
-        Specify the platform to serialize the assets for. Required when --serialize is used.
+        Specify the platform to serialize the assets for
         Available platforms:
 )""");
 
@@ -78,7 +78,7 @@ printf(R"""(
 
 int main(int argc, char* argv[])
 {
-    // The name of the platform we're serializing files for
+    // The name of the platform we're serializing or archiving files for
     std::string platformName{};
     // Paths to whatever we're expected to serialize. Can be a directories or files.
     std::vector<char const*> pathsToSerialize{};

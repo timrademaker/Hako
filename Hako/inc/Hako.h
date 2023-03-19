@@ -61,6 +61,12 @@ namespace hako
 
     class Hako final
     {
+        struct OpenedIntermediateFile
+        {
+            std::vector<char> m_Data;
+            time_t m_LastWriteTime = 0;
+        };
+
     public:
         struct FileInfo
         {
@@ -153,10 +159,14 @@ namespace hako
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
 
         /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
-        std::map<std::string, std::vector<char>> m_OpenedFilesOutsideArchive;
+        std::map<std::string, OpenedIntermediateFile> m_OpenedFilesOutsideArchive;
+        /** The intermediate asset directory. Only needs to be set when reading outside of the archive */
         std::string m_IntermediateDirectory{};
 
-        /** The platform that Hako is currently being used on. Only used when reading outside of the archive, which is only supported on Windows by default */
+        /** Timestamp of the last time the archive was modified when we opened it */
+        time_t m_LastWriteTimestamp = 0;
+
+        /** The platform that Hako is currently being used on. Only used when reading outside of the archive. */
         Platform m_CurrentPlatform = Platform::Windows;
     };
 
