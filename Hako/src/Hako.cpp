@@ -17,16 +17,16 @@ namespace hako
     constexpr char ArchiveMagic[] = { 'H', 'A', 'K', 'O' };
     constexpr uint8_t MagicLength = sizeof(ArchiveMagic);
 
-    struct HakoHeader
+    struct ArchiveHeader
     {
-        HakoHeader()
+        ArchiveHeader()
         {
             memcpy(m_Magic, ArchiveMagic, MagicLength);
         }
 
         char m_Magic[MagicLength];
         uint8_t m_HeaderVersion = HeaderVersion;
-        uint8_t m_HeaderSize = sizeof(HakoHeader);
+        uint8_t m_HeaderSize = sizeof(ArchiveHeader);
         char m_Padding[2] = {};
         uint32_t m_FileCount = 0;
         char m_Padding2[4] = {};
@@ -45,7 +45,7 @@ namespace hako
         snprintf(out_buffer, out_buffer_len, "%zX", std::filesystem::hash_value(a_FilePath));
     }
 
-    void EnsureIntermediateDirectoryExists(std::filesystem::path& a_Directory)
+    void EnsureIntermediateDirectoryExists(std::filesystem::path const& a_Directory)
     {
         static bool createdIntermediateDirectory = false;
         if (!createdIntermediateDirectory)
@@ -73,7 +73,7 @@ namespace hako
         std::filesystem::path intermediateFilePath = GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory);
         EnsureIntermediateDirectoryExists(intermediateFilePath);
 
-        char fileHashHex[Hako::FileInfo::MaxFilePathHashLength]{};
+        char fileHashHex[Archive::FileInfo::MaxFilePathHashLength]{};
         HashFilePath(a_FilePath, fileHashHex, sizeof(fileHashHex));
 
         intermediateFilePath.append(fileHashHex);
@@ -88,7 +88,7 @@ namespace hako
      * @param a_FileInfo File info for the file that should be copied into the archive
      * @return The number of bytes written
      */
-    size_t ArchiveFile(IFile* a_Archive, char const* a_FilePath, Hako::FileInfo const& a_FileInfo)
+    size_t ArchiveFile(IFile* a_Archive, char const* a_FilePath, Archive::FileInfo const& a_FileInfo)
     {
         auto const intermediateFile = s_FileFactory(a_FilePath, FileOpenMode::Read);
         if(!intermediateFile)
@@ -181,11 +181,11 @@ namespace hako
             HashFileNamePair(std::filesystem::path const& a_FilePath)
                 : m_FilePath(a_FilePath.generic_string())
             {
-                strncpy_s(m_FilePathHash, sizeof(m_FilePathHash), a_FilePath.filename().generic_string().c_str(), Hako::FileInfo::MaxFilePathHashLength);
+                strncpy_s(m_FilePathHash, sizeof(m_FilePathHash), a_FilePath.filename().generic_string().c_str(), Archive::FileInfo::MaxFilePathHashLength);
             }
 
             std::string m_FilePath{};
-            char m_FilePathHash[Hako::FileInfo::MaxFilePathHashLength]{};
+            char m_FilePathHash[Archive::FileInfo::MaxFilePathHashLength]{};
         };
 
         std::vector<HashFileNamePair> filePaths;
@@ -203,10 +203,10 @@ namespace hako
         size_t archiveInfoBytesWritten = 0;
 
         {
-            HakoHeader header;
+            ArchiveHeader header;
             header.m_FileCount = filePaths.size();
-            WriteToArchive(archive.get(), &header, sizeof(HakoHeader), archiveInfoBytesWritten);
-            archiveInfoBytesWritten += sizeof(HakoHeader);
+            WriteToArchive(archive.get(), &header, sizeof(ArchiveHeader), archiveInfoBytesWritten);
+            archiveInfoBytesWritten += sizeof(ArchiveHeader);
         }
 
         // Sort file hashes alphabetically
@@ -223,16 +223,16 @@ namespace hako
         {
             std::unique_ptr<IFile> currentFile = s_FileFactory(filePaths[fileIndex].m_FilePath.c_str(), FileOpenMode::Read);
 
-            Hako::FileInfo fi{};
-            strncpy_s(fi.m_FilePathHash, sizeof(fi.m_FilePathHash), filePaths[fileIndex].m_FilePathHash, Hako::FileInfo::MaxFilePathHashLength);
-            fi.m_Offset = sizeof(HakoHeader) + sizeof(Hako::FileInfo) * filePaths.size() + totalFileSize;
+            Archive::FileInfo fi{};
+            strncpy_s(fi.m_FilePathHash, sizeof(fi.m_FilePathHash), filePaths[fileIndex].m_FilePathHash, Archive::FileInfo::MaxFilePathHashLength);
+            fi.m_Offset = sizeof(ArchiveHeader) + sizeof(Archive::FileInfo) * filePaths.size() + totalFileSize;
 
             fi.m_Size = ArchiveFile(archive.get(), filePaths[fileIndex].m_FilePath.c_str(), fi);
             totalFileSize += fi.m_Size;
 
             // Write file info to the archive
-            WriteToArchive(archive.get(), &fi, sizeof(Hako::FileInfo), archiveInfoBytesWritten);
-            archiveInfoBytesWritten += sizeof(Hako::FileInfo);
+            WriteToArchive(archive.get(), &fi, sizeof(Archive::FileInfo), archiveInfoBytesWritten);
+            archiveInfoBytesWritten += sizeof(Archive::FileInfo);
         }
 
         return true;
@@ -281,6 +281,7 @@ namespace hako
                 return true;
             }
         }
+
         IFileSerializer* serializer = SerializerList::GetInstance().GetSerializerForFile(a_FilePath, a_TargetPlatform);
 
         if (serializer != nullptr)
@@ -359,7 +360,7 @@ namespace hako
 
 using namespace hako;
 
-Hako::Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory)
+Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory)
 {
     m_OpenedFiles.clear();
     m_FilesInArchive.clear();
@@ -379,10 +380,10 @@ Hako::Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory)
     }
 
     std::vector<char> buffer{};
-    buffer.resize(sizeof(HakoHeader));
-    m_ArchiveReader->Read(sizeof(HakoHeader), 0, buffer);
+    buffer.resize(sizeof(ArchiveHeader));
+    m_ArchiveReader->Read(sizeof(ArchiveHeader), 0, buffer);
 
-    const HakoHeader header = *reinterpret_cast<HakoHeader*>(buffer.data());
+    const ArchiveHeader header = *reinterpret_cast<ArchiveHeader*>(buffer.data());
     if (memcmp(header.m_Magic, ArchiveMagic, MagicLength) != 0)
     {
         std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
@@ -412,7 +413,7 @@ Hako::Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory)
     }
 }
 
-void hako::Hako::LoadAllFiles()
+void hako::Archive::LoadAllFiles()
 {
     for (const FileInfo& fi : m_FilesInArchive)
     {
@@ -420,7 +421,7 @@ void hako::Hako::LoadAllFiles()
     }
 }
 
-const std::vector<char>* Hako::ReadFile(char const* a_FileName)
+const std::vector<char>* Archive::ReadFile(char const* a_FileName)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     const std::vector<char>* outsideData = ReadFileOutsideArchive(a_FileName);
@@ -441,7 +442,7 @@ const std::vector<char>* Hako::ReadFile(char const* a_FileName)
     return LoadFileContent(*fi);
 }
 
-void Hako::CloseFile(char const* a_FileName)
+void Archive::CloseFile(char const* a_FileName)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_OpenedFilesOutsideArchive.erase(a_FileName);
@@ -449,19 +450,19 @@ void Hako::CloseFile(char const* a_FileName)
     m_OpenedFiles.erase(a_FileName);
 }
 
-void Hako::SetCurrentPlatform(Platform a_Platform)
+void Archive::SetCurrentPlatform(Platform a_Platform)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_CurrentPlatform = a_Platform;
 #endif
 }
 
-const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
+const Archive::FileInfo* Archive::GetFileInfo(char const* a_FileName) const
 {
     assert(!m_FilesInArchive.empty());
 
-    char filePathHash[Hako::FileInfo::MaxFilePathHashLength]{};
-    HashFilePath(a_FileName, filePathHash, Hako::FileInfo::MaxFilePathHashLength);
+    char filePathHash[Archive::FileInfo::MaxFilePathHashLength]{};
+    HashFilePath(a_FileName, filePathHash, Archive::FileInfo::MaxFilePathHashLength);
     
     // Find file (assumes that file names were sorted before this)
     auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), filePathHash, [](FileInfo const& a_Lhs, char const* a_Rhs)
@@ -480,10 +481,10 @@ const Hako::FileInfo* Hako::GetFileInfo(char const* a_FileName) const
     }
 }
 
-const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
+const std::vector<char>* Archive::ReadFileOutsideArchive(char const* a_FileName)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    char fileNameHash[Hako::FileInfo::MaxFilePathHashLength]{};
+    char fileNameHash[Archive::FileInfo::MaxFilePathHashLength]{};
     HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
 
     auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, m_IntermediateDirectory.c_str(), a_FileName);
@@ -528,7 +529,7 @@ const std::vector<char>* Hako::ReadFileOutsideArchive(char const* a_FileName)
     return nullptr;
 }
 
-const std::vector<char>* Hako::LoadFileContent(const FileInfo& a_FileInfo)
+const std::vector<char>* Archive::LoadFileContent(const FileInfo& a_FileInfo)
 {
     // Check if the file has already been read
     {
@@ -556,7 +557,7 @@ const std::vector<char>* Hako::LoadFileContent(const FileInfo& a_FileInfo)
     return nullptr;
 }
 
-void hako::Hako::AddSerializer_Internal(IFileSerializer* a_FileSerializer)
+void hako::Archive::AddSerializer_Internal(IFileSerializer* a_FileSerializer)
 {
     SerializerList::GetInstance().AddSerializer(a_FileSerializer);
 }

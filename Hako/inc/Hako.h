@@ -41,7 +41,7 @@ namespace hako
      */
     bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, bool a_ForceSerialization = false, char const* a_FileExt = nullptr);
 
-    class Hako final
+    class Archive final
     {
     public:
         struct FileInfo
@@ -59,14 +59,14 @@ namespace hako
          * @param a_ArchivePath The path to the archive to open
          * @param a_IntermediateDirectory The directory in which intermediate files are located. Used when intermediate file reading is enabled.
          */
-        Hako(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr);
-        ~Hako() = default;
+        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr);
+        ~Archive() = default;
 
-        Hako(Hako&) = delete;
-        Hako(Hako const&) = delete;
-        Hako& operator=(const Hako&) = delete;
-        Hako(Hako&&) = delete;
-        Hako& operator=(Hako&&) = delete;
+        Archive(Archive&) = delete;
+        Archive(Archive const&) = delete;
+        Archive& operator=(const Archive&) = delete;
+        Archive(Archive&&) = delete;
+        Archive& operator=(Archive&&) = delete;
 
         /**
          * Add a serializer to the content packer
@@ -155,7 +155,7 @@ namespace hako
     };
 
     template<typename Serializer>
-    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type Hako::AddSerializer()
+    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type Archive::AddSerializer()
     {
         IFileSerializer* fs = new Serializer;
         AddSerializer_Internal(fs);
