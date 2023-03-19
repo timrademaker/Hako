@@ -2,8 +2,61 @@
 
 #if defined(_WIN32)
 #include <fileapi.h>
+#include <shellapi.h>
+
+#include <filesystem>
 #include <iostream>
 #endif
+
+namespace hako
+{
+#if defined(_WIN32)
+    void FindDllFilesInDirectory(std::filesystem::path a_Directory, std::vector<std::wstring>& a_OutFileList)
+    {
+        WIN32_FIND_DATAW fileData{};
+        a_Directory /= L"*.dll";
+
+        auto fileHandle = FindFirstFileW(a_Directory.c_str(), &fileData);
+        if (fileHandle == INVALID_HANDLE_VALUE)
+        {
+            std::cout << "No serialization DLLs found in " << std::filesystem::absolute(a_Directory.parent_path()).generic_string() << std::endl;
+            return;
+        }
+
+        do
+        {
+            a_OutFileList.emplace_back(fileData.cFileName);
+        } while (FindNextFileW(fileHandle, &fileData) != 0);
+
+        if (GetLastError() != ERROR_NO_MORE_FILES)
+        {
+            std::cout << "An error occurred while trying to get all DLLs in the working directory" << std::endl;
+        }
+
+        FindClose(fileHandle);
+    }
+
+    void GatherSerializationDLLs(std::vector<std::wstring>& a_OutFileList)
+    {
+        // Find DLLs in current working directory
+        FindDllFilesInDirectory(".", a_OutFileList);
+
+        // Find DLLs relative to the Hako executable
+        int argc = 0;
+        auto* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+        if (argv != nullptr)
+        {
+            wchar_t const* exePath = argv[0];
+            auto const relativeExePath = std::filesystem::relative(exePath, std::filesystem::current_path());
+            if (relativeExePath.has_parent_path())
+            {
+                FindDllFilesInDirectory(relativeExePath.parent_path(), a_OutFileList);
+            }
+        }
+        LocalFree(argv);
+    }
+#endif
+}
 
 using namespace hako;
 
@@ -23,16 +76,16 @@ void hako::SerializerList::AddSerializer(IFileSerializer* a_Serializer)
     m_FileSerializers.push_back(std::unique_ptr<IFileSerializer>(a_Serializer));
 }
 
-IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform)
+IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform) const
 {
     IFileSerializer* serializer = nullptr;
 
     // Find serializer for this file
-    for (auto iter = m_FileSerializers.begin(); iter != m_FileSerializers.end(); ++iter)
+    for (auto const& m_FileSerializer : m_FileSerializers)
     {
-        if ((*iter)->ShouldHandleFile(a_FileName, a_TargetPlatform))
+        if (m_FileSerializer->ShouldHandleFile(a_FileName, a_TargetPlatform))
         {
-            serializer = iter->get();
+            serializer = m_FileSerializer.get();
             break;
         }
     }
@@ -56,7 +109,7 @@ void hako::SerializerList::GatherDynamicSerializers()
     m_HasGatheredDynamicSerializers = true;
 
     std::vector<std::wstring> dllNames;
-    FindDllFilesInWorkingDirectory(dllNames);
+    GatherSerializationDLLs(dllNames);
     
     for (auto& name : dllNames)
     {
@@ -71,6 +124,8 @@ void hako::SerializerList::GatherDynamicSerializers()
                 m_FileSerializers.push_back(std::unique_ptr<hako::IFileSerializer>(s));
 
                 m_LoadedSharedLibraries.push_back(serializerDLL);
+
+                std::wcout << L"Loaded " << name << std::endl;
             }
             else
             {
@@ -84,36 +139,11 @@ void hako::SerializerList::GatherDynamicSerializers()
 void hako::SerializerList::FreeDynamicSerializers()
 {
 #if defined(_WIN32)
-    for (HMODULE& m : m_LoadedSharedLibraries)
+    for (HMODULE const& m : m_LoadedSharedLibraries)
     {
         FreeLibrary(m);
     }
     m_LoadedSharedLibraries.clear();
-#endif
-}
-
-void hako::SerializerList::FindDllFilesInWorkingDirectory(std::vector<std::wstring>& a_OutFileList) const
-{
-#if defined(_WIN32)
-    WIN32_FIND_DATAW fileData{};
-    auto fileHandle = FindFirstFileW(L"*.dll", &fileData);
-    if (fileHandle == INVALID_HANDLE_VALUE)
-    {
-        std::cout << "No serialization DLLs found in working directory" << std::endl;
-        return;
-    }
-
-    do
-    {
-        a_OutFileList.push_back(fileData.cFileName);
-    } while (FindNextFileW(fileHandle, &fileData) != 0);
-
-    if (GetLastError() != ERROR_NO_MORE_FILES)
-    {
-        std::cout << "An error occurred while trying to get all DLLs in the working directory" << std::endl;
-    }
-
-    FindClose(fileHandle);
 #endif
 }
 

@@ -29,7 +29,7 @@ namespace hako
         * @param a_TargetPlatform The platform the file should be serialized for
         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
         */
-        IFileSerializer* GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform);
+        IFileSerializer* GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform) const;
 
     private:
         SerializerList() = default;
@@ -37,8 +37,6 @@ namespace hako
 
         void GatherDynamicSerializers();
         void FreeDynamicSerializers();
-
-        void FindDllFilesInWorkingDirectory(std::vector<std::wstring>& a_OutFileList) const;
 
     private:
         /** All file serializers provided by the user */
