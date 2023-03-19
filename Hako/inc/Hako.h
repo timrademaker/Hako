@@ -77,22 +77,12 @@ namespace hako
             AddSerializer();
 
         /**
-         * Load all files from an archive into memory
-         */
-        void LoadAllFiles();
-
-        /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader, but should remain valid until the file or archive is closed if all files have already been loaded.
+         * @param a_Data The vector to read data into
+         * @return True if the file was successfully read
          */
-        const std::vector<char>* ReadFile(char const* a_FileName);
-
-        /**
-         * Close a file that has been read from the archive to free memory
-         * @param a_FileName The file to close
-         */
-        void CloseFile(char const* a_FileName);
+        bool ReadFile(char const* a_FileName, std::vector<char>& a_Data);
 
         /**
          * Set the platform that Hako is currently being used on. This is only used when reading outside of the archive.
@@ -110,16 +100,18 @@ namespace hako
         /**
          * Read a file outside of the archive as if it was placed inside the archive.
          * @param a_FileName The file to read
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until the next call to ReadFile(), OpenArchive() or CloseArchive().
+         * @param a_Data The vector to read data into
+         * @return True if the file was successfully read
          */
-        const std::vector<char>* ReadFileOutsideArchive(char const* a_FileName);
+        bool ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& a_Data) const;
 
         /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileInfo The file info for the file that should be loaded
-         * @return A pointer to the file's content, or a nullptr if the file couldn't be read. The pointer is only guaranteed to be valid until another function is called on the archive reader.
+         * @param a_Data The vector to read data into
+         * @return True if the file was successfully read
          */
-        const std::vector<char>* LoadFileContent(const FileInfo& a_FileInfo);
+        bool LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_Data) const;
 
         /**
          * Internal implementation for adding a new serializer
@@ -129,25 +121,15 @@ namespace hako
     private:
         /** Info on all files present in the archive opened with OpenArchive() */
         std::vector<FileInfo> m_FilesInArchive;
-        /** All files that have already been opened with ReadFile() */
-        std::map<std::string, std::vector<char>> m_OpenedFiles;
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-        struct OpenedIntermediateFile
-        {
-            std::vector<char> m_Data;
-            size_t m_LastWriteTime = 0;
-        };
-
-        /** All files that have already been opened with ReadFile(), but that are placed outside of the archive */
-        std::map<std::string, OpenedIntermediateFile> m_OpenedFilesOutsideArchive;
         /** The intermediate asset directory. Only needs to be set when reading outside of the archive */
         std::string m_IntermediateDirectory{};
 
         /** Timestamp of the last time the archive was modified when we opened it */
-        size_t m_LastWriteTimestamp = 0;
+        time_t m_LastWriteTimestamp = 0;
 
         /** The platform that Hako is currently being used on. Only used when reading outside of the archive. */
         Platform m_CurrentPlatform = Platform::Windows;

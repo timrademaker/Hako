@@ -168,7 +168,7 @@ namespace hako
             return false;
         }
 
-        std::unique_ptr<IFile> archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
+        std::unique_ptr<IFile> const archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
         if (archive == nullptr)
         {
             std::cout << "Unable to open archive " << a_ArchiveName << " for writing!" << std::endl;
@@ -362,14 +362,12 @@ using namespace hako;
 
 Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory)
 {
-    m_OpenedFiles.clear();
     m_FilesInArchive.clear();
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    m_OpenedFilesOutsideArchive.clear();
     m_IntermediateDirectory = std::string(a_IntermediateDirectory);
     m_LastWriteTimestamp = std::filesystem::last_write_time(a_ArchivePath).time_since_epoch().count();
 #endif
-    
+
     // Open archive
     m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
     if (m_ArchiveReader == nullptr)
@@ -391,13 +389,13 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory)
         return;
     }
 
-    if(header.m_HeaderVersion != HeaderVersion)
+    if (header.m_HeaderVersion != HeaderVersion)
     {
         std::cout << "Archive version mismatch. The archive should be rebuilt." << std::endl;
         assert(false);
         return;
     }
-    
+
     buffer.reserve(sizeof(FileInfo));
     size_t bytesRead = header.m_HeaderSize;
 
@@ -413,21 +411,12 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory)
     }
 }
 
-void hako::Archive::LoadAllFiles()
-{
-    for (const FileInfo& fi : m_FilesInArchive)
-    {
-        LoadFileContent(fi);
-    }
-}
-
-const std::vector<char>* Archive::ReadFile(char const* a_FileName)
+bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data)
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    const std::vector<char>* outsideData = ReadFileOutsideArchive(a_FileName);
-    if (outsideData != nullptr)
+    if(ReadFileOutsideArchive(a_FileName, a_Data))
     {
-        return outsideData;
+        return true;
     }
 #endif
 
@@ -439,15 +428,7 @@ const std::vector<char>* Archive::ReadFile(char const* a_FileName)
         return nullptr;
     }
 
-    return LoadFileContent(*fi);
-}
-
-void Archive::CloseFile(char const* a_FileName)
-{
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    m_OpenedFilesOutsideArchive.erase(a_FileName);
-#endif
-    m_OpenedFiles.erase(a_FileName);
+    return LoadFileContent(*fi, a_Data);
 }
 
 void Archive::SetCurrentPlatform(Platform a_Platform)
@@ -481,7 +462,7 @@ const Archive::FileInfo* Archive::GetFileInfo(char const* a_FileName) const
     }
 }
 
-const std::vector<char>* Archive::ReadFileOutsideArchive(char const* a_FileName)
+bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& a_Data) const
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     char fileNameHash[Archive::FileInfo::MaxFilePathHashLength]{};
@@ -497,64 +478,34 @@ const std::vector<char>* Archive::ReadFileOutsideArchive(char const* a_FileName)
     }
 
     // Try to open the file
-    std::unique_ptr<IFile> file = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
+    std::unique_ptr<IFile> const file = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::Read);
 
     if (file == nullptr)
     {
         // File doesn't exist outside of the archive, or it can't be opened
-        return nullptr;
+        return false;
     }
-
-    // Check if the file has already been opened and didn't change since then
-    auto const openedFile = m_OpenedFilesOutsideArchive.find(fileNameHash);
-    if (openedFile != m_OpenedFilesOutsideArchive.end() && openedFile->second.m_LastWriteTime >= lastIntermediateFileWriteTime)
-    {
-        return &openedFile->second.m_Data;
-    }
-
-    openedFile->second.m_LastWriteTime = std::filesystem::last_write_time(intermediatePath).time_since_epoch().count();
-
-    std::vector<char>& data = m_OpenedFilesOutsideArchive[fileNameHash].m_Data;
 
     // Read intermediate file content
     const size_t fileSize = file->GetFileSize();
-    data.resize(fileSize);
+    a_Data.clear();
+    a_Data.resize(fileSize);
 
-    if (file->Read(fileSize, 0, data))
+    if (file->Read(fileSize, 0, a_Data))
     {
-        return &data;
+        return true;
     }
 #endif
 
-    return nullptr;
+    return false;
 }
 
-const std::vector<char>* Archive::LoadFileContent(const FileInfo& a_FileInfo)
+bool Archive::LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_Data) const
 {
-    // Check if the file has already been read
-    {
-        const auto openedFile = m_OpenedFiles.find(a_FileInfo.m_FilePathHash);
-        if (openedFile != m_OpenedFiles.end())
-        {
-            return &openedFile->second;
-        }
-    }
-
-    // Add a new entry for this file
-    std::vector<char>& data = m_OpenedFiles[a_FileInfo.m_FilePathHash];
-    if (!data.empty())
-    {
-        return &data;
-    }
-
     // Read the file's content
-    data.resize(a_FileInfo.m_Size);
-    if (m_ArchiveReader->Read(a_FileInfo.m_Size, a_FileInfo.m_Offset, data))
-    {
-        return &data;
-    }
-
-    return nullptr;
+    a_Data.clear();
+    a_Data.resize(a_FileInfo.m_Size);
+    return m_ArchiveReader->Read(a_FileInfo.m_Size, a_FileInfo.m_Offset, a_Data);
 }
 
 void hako::Archive::AddSerializer_Internal(IFileSerializer* a_FileSerializer)
