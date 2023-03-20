@@ -21,6 +21,16 @@ namespace hako
     public:
         static SerializerList& GetInstance();
 
+        SerializerList(SerializerList&) = delete;
+        SerializerList(SerializerList const&) = delete;
+        SerializerList& operator=(const SerializerList&) = delete;
+        SerializerList(SerializerList&&) = delete;
+        SerializerList& operator=(SerializerList&&) = delete;
+
+        /**
+         * Add a serializer that can be used for file serialization
+         * @param a_Serializer The serializer to add. Takes ownership of the serializer.
+         */
         void AddSerializer(IFileSerializer* a_Serializer);
 
         /**
@@ -32,18 +42,14 @@ namespace hako
         IFileSerializer* GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform) const;
 
     private:
-        SerializerList() = default;
+        SerializerList();
         ~SerializerList();
 
-        void GatherDynamicSerializers();
         void FreeDynamicSerializers();
 
     private:
         /** All file serializers provided by the user */
         std::vector<std::unique_ptr<IFileSerializer>> m_FileSerializers;
-
-        /** Whether the class has already gathered (or started gathering) dynamic serializers or not */
-        bool m_HasGatheredDynamicSerializers = false;
 
 #if defined(_WIN32)
         std::vector<HMODULE> m_LoadedSharedLibraries;

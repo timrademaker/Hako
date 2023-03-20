@@ -16,7 +16,7 @@ namespace hako
         WIN32_FIND_DATAW fileData{};
         a_Directory /= L"*.dll";
 
-        auto fileHandle = FindFirstFileW(a_Directory.c_str(), &fileData);
+        auto const fileHandle = FindFirstFileW(a_Directory.c_str(), &fileData);
         if (fileHandle == INVALID_HANDLE_VALUE)
         {
             std::cout << "No serialization DLLs found in " << std::filesystem::absolute(a_Directory.parent_path()).generic_string() << std::endl;
@@ -30,7 +30,7 @@ namespace hako
 
         if (GetLastError() != ERROR_NO_MORE_FILES)
         {
-            std::cout << "An error occurred while trying to get all DLLs in the working directory" << std::endl;
+            std::cout << "An error occurred while trying to get all DLLs in " << std::filesystem::absolute(a_Directory.parent_path()).generic_string() << std::endl;
         }
 
         FindClose(fileHandle);
@@ -41,7 +41,7 @@ namespace hako
         // Find DLLs in current working directory
         FindDllFilesInDirectory(".", a_OutFileList);
 
-        // Find DLLs relative to the Hako executable
+        // Find DLLs next to the Hako executable
         int argc = 0;
         auto* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
         if (argv != nullptr)
@@ -52,8 +52,9 @@ namespace hako
             {
                 FindDllFilesInDirectory(relativeExePath.parent_path(), a_OutFileList);
             }
+
+            LocalFree(argv);
         }
-        LocalFree(argv);
     }
 #endif
 }
@@ -63,11 +64,6 @@ using namespace hako;
 SerializerList& hako::SerializerList::GetInstance()
 {
     static SerializerList instance;
-    if (!instance.m_HasGatheredDynamicSerializers)
-    {
-        instance.GatherDynamicSerializers();
-    }
-
     return instance;
 }
 
@@ -93,24 +89,13 @@ IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a
     return serializer;
 }
 
-hako::SerializerList::~SerializerList()
-{
-    m_FileSerializers.clear();
-    FreeDynamicSerializers();
-}
-
-void hako::SerializerList::GatherDynamicSerializers()
+SerializerList::SerializerList()
 {
 #if defined(_WIN32)
-    if (m_HasGatheredDynamicSerializers)
-    {
-        return;
-    }
-    m_HasGatheredDynamicSerializers = true;
-
+    // Find and load DLLs that (might) contain serializers
     std::vector<std::wstring> dllNames;
     GatherSerializationDLLs(dllNames);
-    
+
     for (auto& name : dllNames)
     {
         typedef hako::IFileSerializer* (*SerializerFactory_t)();
@@ -120,8 +105,7 @@ void hako::SerializerList::GatherDynamicSerializers()
             auto serializerFactoryFunc = reinterpret_cast<SerializerFactory_t>(GetProcAddress(serializerDLL, s_FactoryFunctionName));
             if (serializerFactoryFunc)
             {
-                hako::IFileSerializer* s = serializerFactoryFunc();
-                m_FileSerializers.push_back(std::unique_ptr<hako::IFileSerializer>(s));
+                AddSerializer(serializerFactoryFunc());
 
                 m_LoadedSharedLibraries.push_back(serializerDLL);
 
@@ -134,6 +118,12 @@ void hako::SerializerList::GatherDynamicSerializers()
         }
     }
 #endif
+}
+
+hako::SerializerList::~SerializerList()
+{
+    m_FileSerializers.clear();
+    FreeDynamicSerializers();
 }
 
 void hako::SerializerList::FreeDynamicSerializers()

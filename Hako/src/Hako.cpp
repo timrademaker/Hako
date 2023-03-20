@@ -81,6 +81,12 @@ namespace hako
         return intermediateFilePath.generic_string();
     }
 
+    /** Add a static serializer to the list of known serializers */
+    void AddSerializer_Internal(IFileSerializer* a_FileSerializer)
+    {
+        SerializerList::GetInstance().AddSerializer(a_FileSerializer);
+    }
+
     /**
      * Copy a file into the archive
      * @param a_Archive The archive to write to
@@ -360,12 +366,13 @@ namespace hako
 
 using namespace hako;
 
-Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory)
+Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory, Platform a_Platform)
 {
     m_FilesInArchive.clear();
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_IntermediateDirectory = std::string(a_IntermediateDirectory);
     m_LastWriteTimestamp = std::filesystem::last_write_time(a_ArchivePath).time_since_epoch().count();
+    m_CurrentPlatform = a_Platform;
 #endif
 
     // Open archive
@@ -429,13 +436,6 @@ bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data)
     }
 
     return LoadFileContent(*fi, a_Data);
-}
-
-void Archive::SetCurrentPlatform(Platform a_Platform)
-{
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    m_CurrentPlatform = a_Platform;
-#endif
 }
 
 const Archive::FileInfo* Archive::GetFileInfo(char const* a_FileName) const
@@ -506,9 +506,4 @@ bool Archive::LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_D
     a_Data.clear();
     a_Data.resize(a_FileInfo.m_Size);
     return m_ArchiveReader->Read(a_FileInfo.m_Size, a_FileInfo.m_Offset, a_Data);
-}
-
-void hako::Archive::AddSerializer_Internal(IFileSerializer* a_FileSerializer)
-{
-    SerializerList::GetInstance().AddSerializer(a_FileSerializer);
 }

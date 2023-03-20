@@ -21,6 +21,17 @@ namespace hako
     void SetFileIO(FileFactorySignature a_FileFactory);
 
     /**
+     * Add a serializer to use for serialization
+     * @note The serializer should inherit from IFileSerializer
+     */
+    template<typename Serializer>
+    std::enable_if_t<std::is_base_of_v<IFileSerializer, Serializer>, void> AddSerializer()
+    {
+        extern void AddSerializer_Internal(IFileSerializer * a_FileSerializer);
+        AddSerializer_Internal(new Serializer);
+    }
+
+    /**
      * Create an archive
      * @param a_TargetPlatform The platform for which to create the archive
      * @param a_IntermediateDirectory The directory in which intermediate assets are located
@@ -58,8 +69,9 @@ namespace hako
          * Open an archive for reading
          * @param a_ArchivePath The path to the archive to open
          * @param a_IntermediateDirectory The directory in which intermediate files are located. Used when intermediate file reading is enabled.
+         * @param a_Platform The current platform. Used when intermediate file reading is enabled.
          */
-        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr);
+        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr, Platform a_Platform = Platform::Windows);
         ~Archive() = default;
 
         Archive(Archive&) = delete;
@@ -69,25 +81,12 @@ namespace hako
         Archive& operator=(Archive&&) = delete;
 
         /**
-         * Add a serializer to the content packer
-         * The serializer should inherit from IFileSerializer
-         */
-        template<typename Serializer>
-        static typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type
-            AddSerializer();
-
-        /**
          * Read the content of an archived file from the archive that is currently open
          * @param a_FileName The file to read from the archive
          * @param a_Data The vector to read data into
          * @return True if the file was successfully read
          */
         bool ReadFile(char const* a_FileName, std::vector<char>& a_Data);
-
-        /**
-         * Set the platform that Hako is currently being used on. This is only used when reading outside of the archive.
-         */
-        void SetCurrentPlatform(Platform a_Platform);
 
     private:
         /**
@@ -113,11 +112,6 @@ namespace hako
          */
         bool LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_Data) const;
 
-        /**
-         * Internal implementation for adding a new serializer
-         */
-        static void AddSerializer_Internal(IFileSerializer* a_FileSerializer);
-
     private:
         /** Info on all files present in the archive opened with OpenArchive() */
         std::vector<FileInfo> m_FilesInArchive;
@@ -135,13 +129,6 @@ namespace hako
         Platform m_CurrentPlatform = Platform::Windows;
 #endif
     };
-
-    template<typename Serializer>
-    inline typename std::enable_if<std::is_base_of<IFileSerializer, Serializer>::value, void>::type Archive::AddSerializer()
-    {
-        IFileSerializer* fs = new Serializer;
-        AddSerializer_Internal(fs);
-    }
 }
 
 #if defined(_MSC_VER)
