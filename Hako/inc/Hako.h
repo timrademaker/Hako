@@ -60,9 +60,11 @@ namespace hako
             static constexpr size_t MaxFilePathHashLength = 17;
 
             char m_FilePathHash[MaxFilePathHashLength] = {};
+            char m_Padding[7];
             size_t m_Size = 0;
             size_t m_Offset = 0;
         };
+        static_assert(sizeof(FileInfo) == 40 && "FileInfo size changed");
 
     public:
         /**
@@ -76,7 +78,7 @@ namespace hako
 
         Archive(Archive&) = delete;
         Archive(Archive const&) = delete;
-        Archive& operator=(const Archive&) = delete;
+        Archive& operator=(Archive const&) = delete;
         Archive(Archive&&) = delete;
         Archive& operator=(Archive&&) = delete;
 
@@ -86,7 +88,7 @@ namespace hako
          * @param a_Data The vector to read data into
          * @return True if the file was successfully read
          */
-        bool ReadFile(char const* a_FileName, std::vector<char>& a_Data);
+        bool ReadFile(char const* a_FileName, std::vector<char>& a_Data) const;
 
     private:
         /**
@@ -94,7 +96,7 @@ namespace hako
          * @param a_FileName The file to find file info for
          * @return The file info, or a nullptr if not found
          */
-        const FileInfo* GetFileInfo(char const* a_FileName) const;
+        FileInfo const* GetFileInfo(char const* a_FileName) const;
 
         /**
          * Read a file outside of the archive as if it was placed inside the archive.
@@ -110,7 +112,7 @@ namespace hako
          * @param a_Data The vector to read data into
          * @return True if the file was successfully read
          */
-        bool LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_Data) const;
+        bool LoadFileContent(FileInfo const& a_FileInfo, std::vector<char>& a_Data) const;
 
     private:
         /** Info on all files present in the archive opened with OpenArchive() */

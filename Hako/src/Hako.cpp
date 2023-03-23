@@ -28,6 +28,7 @@ namespace hako
         uint32_t m_FileCount = 0;
         char m_Padding2[4] = {};
     };
+    static_assert(sizeof(ArchiveHeader) == 16 && "ArchiveHeader size changed");
 
     /** The factory function to use for file IO */
     FileFactorySignature s_FileFactory = hako::HakoFileFactory;
@@ -194,7 +195,7 @@ namespace hako
         std::vector<HashFileNamePair> filePaths;
         filePaths.reserve(256);
 
-        for (const std::filesystem::directory_entry& dirEntry :
+        for (std::filesystem::directory_entry const& dirEntry :
             std::filesystem::recursive_directory_iterator(GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory), std::filesystem::directory_options::skip_permission_denied))
         {
             if (dirEntry.is_regular_file())
@@ -290,7 +291,7 @@ namespace hako
         if (serializer != nullptr)
         {
             std::vector<char> data{};
-            const size_t serializedByteCount = serializer->SerializeFile(a_FilePath, a_TargetPlatform, data);
+            size_t const serializedByteCount = serializer->SerializeFile(a_FilePath, a_TargetPlatform, data);
             data.resize(serializedByteCount);
 
             auto const intermediateFile = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::WriteTruncate);
@@ -328,7 +329,7 @@ namespace hako
 
         bool success = true;
 
-        for (const std::filesystem::directory_entry& dirEntry :
+        for (std::filesystem::directory_entry const& dirEntry :
             std::filesystem::recursive_directory_iterator(a_Directory, std::filesystem::directory_options::skip_permission_denied))
         {
             if(dirEntry.is_regular_file() && (a_FileExt == nullptr || dirEntry.path().extension() == fileExtension))
@@ -385,7 +386,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     buffer.resize(sizeof(ArchiveHeader));
     m_ArchiveReader->Read(sizeof(ArchiveHeader), 0, buffer);
 
-    const ArchiveHeader header = *reinterpret_cast<ArchiveHeader*>(buffer.data());
+    ArchiveHeader const header = *reinterpret_cast<ArchiveHeader*>(buffer.data());
     if (memcmp(header.m_Magic, ArchiveMagic, MagicLength) != 0)
     {
         std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
@@ -415,7 +416,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     }
 }
 
-bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data)
+bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data) const
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     if(ReadFileOutsideArchive(a_FileName, a_Data))
@@ -424,7 +425,7 @@ bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data)
     }
 #endif
 
-    const FileInfo* fi = GetFileInfo(a_FileName);
+    FileInfo const* fi = GetFileInfo(a_FileName);
     if (fi == nullptr)
     {
         std::cout << "Unable to find file " << a_FileName << " in archive." << std::endl;
@@ -435,7 +436,7 @@ bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data)
     return LoadFileContent(*fi, a_Data);
 }
 
-const Archive::FileInfo* Archive::GetFileInfo(char const* a_FileName) const
+Archive::FileInfo const* Archive::GetFileInfo(char const* a_FileName) const
 {
     assert(!m_FilesInArchive.empty());
 
@@ -484,7 +485,7 @@ bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& 
     }
 
     // Read intermediate file content
-    const size_t fileSize = file->GetFileSize();
+    size_t const fileSize = file->GetFileSize();
     a_Data.clear();
     a_Data.resize(fileSize);
 
@@ -497,9 +498,8 @@ bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& 
     return false;
 }
 
-bool Archive::LoadFileContent(const FileInfo& a_FileInfo, std::vector<char>& a_Data) const
+bool Archive::LoadFileContent(FileInfo const& a_FileInfo, std::vector<char>& a_Data) const
 {
-    // Read the file's content
     a_Data.clear();
     a_Data.resize(a_FileInfo.m_Size);
     return m_ArchiveReader->Read(a_FileInfo.m_Size, a_FileInfo.m_Offset, a_Data);
