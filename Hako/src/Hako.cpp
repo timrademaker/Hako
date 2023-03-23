@@ -4,11 +4,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iostream>
-
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
 #include <filesystem>
-#endif
+#include <iostream>
 
 namespace hako
 {
