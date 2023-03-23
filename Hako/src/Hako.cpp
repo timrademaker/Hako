@@ -21,14 +21,12 @@ namespace hako
             memcpy(m_Magic, ArchiveMagic, MagicLength);
         }
 
-        char m_Magic[MagicLength];
+        char m_Magic[MagicLength]{};
         uint8_t m_HeaderVersion = HeaderVersion;
         uint8_t m_HeaderSize = sizeof(ArchiveHeader);
         char m_Padding[2] = {};
         uint32_t m_FileCount = 0;
-        char m_Padding2[4] = {};
     };
-    static_assert(sizeof(ArchiveHeader) == 16 && "ArchiveHeader size changed");
 
     /** The factory function to use for file IO */
     FileFactorySignature s_FileFactory = hako::HakoFileFactory;
