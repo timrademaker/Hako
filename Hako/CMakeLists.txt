@@ -9,6 +9,7 @@ set(HEADERS
     inc/HakoFile.h
     inc/HakoPlatforms.h
     private/SerializerList.h
+    private/MurmurHash3.h
 )
 
 # Set sources for Hako
@@ -18,6 +19,7 @@ set(SOURCES
     src/IFileSerializer.cpp
     src/HakoFile.cpp
     private/SerializerList.cpp
+    private/MurmurHash3.cpp
 )
 
 if(HAKO_STANDALONE)

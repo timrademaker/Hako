@@ -1,5 +1,7 @@
 #include "Hako.h"
 #include "HakoFile.h"
+
+#include "MurmurHash3.h"
 #include "SerializerList.h"
 
 #include <algorithm>
@@ -13,6 +15,7 @@ namespace hako
     constexpr uint8_t HeaderVersion = 2;
     constexpr char ArchiveMagic[] = { 'H', 'A', 'K', 'O' };
     constexpr uint8_t MagicLength = sizeof(ArchiveMagic);
+    constexpr uint32_t Murmur3Seed = 0x48'41'4B'4F;
 
     struct ArchiveHeader
     {
@@ -38,7 +41,9 @@ namespace hako
 
     void HashFilePath(char const* a_FilePath, char* out_buffer, size_t out_buffer_len)
     {
-        snprintf(out_buffer, out_buffer_len, "%zX", std::filesystem::hash_value(a_FilePath));
+        uint64_t hash[2]{};
+        MurmurHash3_x64_128(a_FilePath, strlen(a_FilePath), Murmur3Seed, hash);
+        snprintf(out_buffer, out_buffer_len, "%zX%zX", hash[0], hash[1]);
     }
 
     void EnsureIntermediateDirectoryExists(std::filesystem::path const& a_Directory)

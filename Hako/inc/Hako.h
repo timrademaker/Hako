@@ -57,14 +57,14 @@ namespace hako
     public:
         struct FileInfo
         {
-            static constexpr size_t MaxFilePathHashLength = 17;
+            static constexpr size_t MaxFilePathHashLength = 33;
 
-            char m_FilePathHash[MaxFilePathHashLength] = {};
-            char m_Padding[7];
+            char m_FilePathHash[MaxFilePathHashLength]{};
+            char m_Padding[7]{};
             size_t m_Size = 0;
             size_t m_Offset = 0;
         };
-        static_assert(sizeof(FileInfo) == 40 && "FileInfo size changed");
+        static_assert(sizeof(FileInfo) == 56 && "FileInfo size changed");
 
     public:
         /**
