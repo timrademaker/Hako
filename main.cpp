@@ -37,40 +37,36 @@ void PrintAvailablePlatforms(char const* separator)
 
 void PrintHelp()
 {
-    printf(R"""(
-Available flags:
-    --help
-        Print this help message and quit
+    printf(R"""(Available flags:
+--help
+    Print this help message and quit
 
-    --intermediate_dir <path_to_intermediate_directory>
-        Path to the intermediate asset directory. Required for both serialization and archive creation.
+--intermediate_dir <path_to_intermediate_directory>
+    Path to the intermediate asset directory. Required for both serialization and archive creation.
 
-    --serialize <path_to_serialize> [<path_to_serialize>...]
-        Specify paths of files or directories to serialize. Should be relative to your working directory.
+--serialize <path_to_serialize> [<path_to_serialize>...]
+    Specify paths of files or directories to serialize. Should be relative to your working directory.
 
-    --ext <file_extension>
-        When specified, only serialize files with this extension
-        Does not apply to files explicitly specified with --serialize
+--ext <file_extension>
+    When specified, only serialize files with this extension
+    Does not apply to files explicitly specified with --serialize
 
-    --force_serialization
-        When used, serialize files regardless of whether they were changed since they were last serialized
+--force_serialization
+    When used, serialize files regardless of whether they were changed since they were last serialized
 
-    --platform <platform_name>
-        Specify the platform to serialize the assets for
-        Available platforms:
-)""");
+--platform <platform_name>
+    Specify the platform to serialize the assets for
+    Available platforms: )""");
 
-    printf("            ");
     PrintAvailablePlatforms(", ");
     printf("\n");
 
 printf(R"""(
-    --archive <archive_out_path>
-        Path to the archive to output to
+--archive <archive_out_path>
+    Path to the archive to output to
 
-    --overwrite_archive
-        When used, overwrite the archive specified with --archive if it exists
-
+--overwrite_archive
+    When used, overwrite the archive specified with --archive if it exists
 )""");
 
     printf(R"""(
@@ -144,6 +140,7 @@ CommandLineParams ParseCommandLineParams(int argc, char* argv[])
         else if (strcmp(argv[i], "--help") == 0)
         {
             params.m_ShouldPrintHelp = true;
+            break;
         }
     }
 
@@ -175,6 +172,12 @@ bool VerifyCommandLineParameters(CommandLineParams const& a_Params)
 
 int main(int argc, char* argv[])
 {
+    if(argc < 2)
+    {
+        PrintHelp();
+        return EXIT_SUCCESS;
+    }
+
     auto const params = ParseCommandLineParams(argc, argv);
 
     if(params.m_ShouldPrintHelp)
