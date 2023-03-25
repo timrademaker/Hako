@@ -122,7 +122,6 @@ namespace hako
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
 
-#ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
         /** The intermediate asset directory. Only needs to be set when reading outside of the archive */
         std::string m_IntermediateDirectory{};
 
@@ -131,7 +130,6 @@ namespace hako
 
         /** The platform that Hako is currently being used on. Only used when reading outside of the archive. */
         Platform m_CurrentPlatform = Platform::Windows;
-#endif
     };
 }
 
