@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
-#include <iostream>
 
 namespace hako
 {
@@ -33,6 +32,15 @@ namespace hako
 
     /** The factory function to use for file IO */
     FileFactorySignature s_FileFactory = hako::HakoFileFactory;
+
+    void Log(char const* a_Format, ...)
+    {
+        printf("[Hako] ");
+        va_list args;
+        va_start(args, a_Format);
+        vprintf(a_Format, args);
+        va_end(args);
+    }
 
     void SetFileIO(FileFactorySignature a_FileFactory)
     {
@@ -115,7 +123,7 @@ namespace hako
 
             if (!intermediateFile->Read(bytesToRead, bytesRead, data))
             {
-                std::cout << "Unable to archive file " << a_FilePath << std::endl;
+                hako::Log("Unable to archive file %s\n", a_FilePath);
                 return 0;
             }
 
@@ -147,7 +155,7 @@ namespace hako
 
         if (!a_Archive->Write(a_WriteOffset, buffer))
         {
-            std::cout << "Error while writing to the archive!" << std::endl;
+            hako::Log("Error while writing to the archive!\n");
             assert(false);
         }
     }
@@ -156,14 +164,14 @@ namespace hako
     {
         if(a_IntermediateDirectory == nullptr)
         {
-            std::cout << "No intermediate directory specified for archive creation" << std::endl;
+            hako::Log("No intermediate directory specified for archive creation\n");
             assert(a_IntermediateDirectory != nullptr);
             return false;
         }
 
         if (a_ArchiveName == nullptr)
         {
-            std::cout << "No archive path specified for archive creation" << std::endl;
+            hako::Log("No archive path specified for archive creation\n");
             assert(a_ArchiveName != nullptr);
             return false;
         }
@@ -171,14 +179,14 @@ namespace hako
         if (!a_OverwriteExistingFile && std::filesystem::exists(a_ArchiveName))
         {
             // The archive already exists, and we don't want to overwrite it
-            std::cout << "Failed to create archive " << a_ArchiveName << " - file already exists" << std::endl;
+            hako::Log("Failed to create archive \"%s\" - file already exists.\n", a_ArchiveName);
             return false;
         }
 
         std::unique_ptr<IFile> const archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
         if (archive == nullptr)
         {
-            std::cout << "Unable to open archive " << a_ArchiveName << " for writing!" << std::endl;
+            hako::Log("Unable to open archive \"%s\" for writing!\n", a_ArchiveName);
             assert(archive == nullptr);
             return false;
         }
@@ -380,7 +388,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
     if (m_ArchiveReader == nullptr)
     {
-        std::cout << "Unable to open archive " << a_ArchivePath << " for reading!" << std::endl;
+        hako::Log("Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
         assert(m_ArchiveReader == nullptr);
         return;
     }
@@ -392,14 +400,14 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     ArchiveHeader const header = *reinterpret_cast<ArchiveHeader*>(buffer.data());
     if (memcmp(header.m_Magic, ArchiveMagic, MagicLength) != 0)
     {
-        std::cout << "The archive does not seem to a Hako archive, or the file might be corrupted." << std::endl;
+        hako::Log("The archive does not seem to a Hako archive, or the file might be corrupted.\n");
         assert(false);
         return;
     }
 
     if (header.m_HeaderVersion != HeaderVersion)
     {
-        std::cout << "Archive version mismatch. The archive should be rebuilt." << std::endl;
+        hako::Log("Archive version mismatch. The archive should be rebuilt.\n");
         assert(false);
         return;
     }
@@ -431,9 +439,9 @@ bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data) const
     FileInfo const* fi = GetFileInfo(a_FileName);
     if (fi == nullptr)
     {
-        std::cout << "Unable to find file " << a_FileName << " in archive." << std::endl;
+        hako::Log("Unable to find file \"%s\" in archive.\n", a_FileName);
         assert(fi == nullptr);
-        return nullptr;
+        return false;
     }
 
     return LoadFileContent(*fi, a_Data);
