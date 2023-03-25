@@ -43,6 +43,7 @@ void PrintHelp()
 
 --intermediate_dir <path_to_intermediate_directory>
     Path to the intermediate asset directory. Required for both serialization and archive creation.
+    Defaults to \"./%s/\"
 
 --serialize <path_to_serialize> [<path_to_serialize>...]
     Specify paths of files or directories to serialize. Should be relative to your working directory.
@@ -56,7 +57,7 @@ void PrintHelp()
 
 --platform <platform_name>
     Specify the platform to serialize the assets for
-    Available platforms: )""");
+    Available platforms: )""", hako::Archive::DefaultIntermediatePath);
 
     PrintAvailablePlatforms(", ");
     printf("\n");

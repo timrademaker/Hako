@@ -55,6 +55,8 @@ namespace hako
     class Archive final
     {
     public:
+        static constexpr char DefaultIntermediatePath[] = "HakoIntermediate";
+
         struct FileInfo
         {
             static constexpr size_t MaxFilePathHashLength = 33;
@@ -73,7 +75,7 @@ namespace hako
          * @param a_IntermediateDirectory The directory in which intermediate files are located. Used when intermediate file reading is enabled.
          * @param a_Platform The current platform. Used when intermediate file reading is enabled.
          */
-        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr, Platform a_Platform = Platform::Windows);
+        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = DefaultIntermediatePath, Platform a_Platform = Platform::Windows);
         ~Archive() = default;
 
         Archive(Archive&) = delete;

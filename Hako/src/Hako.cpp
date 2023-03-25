@@ -380,6 +380,17 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     m_FilesInArchive.clear();
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_IntermediateDirectory = std::string(a_IntermediateDirectory);
+
+    std::filesystem::path const intermediatePath(a_IntermediateDirectory);
+    if(std::filesystem::exists(a_IntermediateDirectory))
+    {
+        assert(std::filesystem::is_directory(intermediatePath) && "Specified intermediate path is not a directory!");
+    }
+    else
+    {
+        hako::Log("Specified intermediate directory \"%s\" does not exist.\n", a_IntermediateDirectory);
+    }
+
     m_LastWriteTimestamp = std::filesystem::last_write_time(a_ArchivePath).time_since_epoch().count();
     m_CurrentPlatform = a_Platform;
 #endif
@@ -478,6 +489,10 @@ bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& 
     HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
 
     auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, m_IntermediateDirectory.c_str(), a_FileName);
+    if(!std::filesystem::exists(intermediatePath))
+    {
+        return false;
+    }
 
     auto const lastIntermediateFileWriteTime = std::filesystem::last_write_time(intermediatePath).time_since_epoch().count();
     if (lastIntermediateFileWriteTime <= m_LastWriteTimestamp)
