@@ -75,7 +75,7 @@ void hako::SerializerList::AddSerializer(IFileSerializer* a_Serializer)
     m_FileSerializers.push_back(std::unique_ptr<IFileSerializer>(a_Serializer));
 }
 
-IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform) const
+IFileSerializer* hako::SerializerList::GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const
 {
     IFileSerializer* serializer = nullptr;
 

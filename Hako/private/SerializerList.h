@@ -39,7 +39,7 @@ namespace hako
         * @param a_TargetPlatform The platform the file should be serialized for
         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
         */
-        IFileSerializer* GetSerializerForFile(const std::string& a_FileName, Platform a_TargetPlatform) const;
+        IFileSerializer* GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const;
 
     private:
         SerializerList();

@@ -2,7 +2,6 @@
 
 #include "HakoPlatforms.h"
 
-#include <string>
 #include <vector>
 
 namespace hako
@@ -18,7 +17,7 @@ namespace hako
          * @param a_TargetPlatform The platform the file should be serialized for
          * @return True if this serializer should serialize a given file
          */
-        virtual bool ShouldHandleFile(const std::string& a_FileName, Platform a_TargetPlatform) const = 0;
+        virtual bool ShouldHandleFile(char const* a_FileName, Platform a_TargetPlatform) const = 0;
         /**
          * Serialize a file
          * @param a_FileName The name of the file to serialize
@@ -26,6 +25,6 @@ namespace hako
          * @param a_Buffer The buffer to put the serialized file content into
          * @return The number of bytes written to the buffer
          */
-        virtual size_t SerializeFile(const std::string& a_FileName, Platform a_TargetPlatform, std::vector<char>& a_Buffer) = 0;
+        virtual size_t SerializeFile(char const* a_FileName, Platform a_TargetPlatform, std::vector<char>& a_Buffer) = 0;
     };
 }
