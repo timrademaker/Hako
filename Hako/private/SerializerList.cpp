@@ -7,7 +7,6 @@
 #include <shellapi.h>
 
 #include <filesystem>
-#include <iostream>
 #endif
 
 namespace hako
@@ -22,7 +21,7 @@ namespace hako
         auto const fileHandle = FindFirstFileW(a_Directory.c_str(), &fileData);
         if (fileHandle == INVALID_HANDLE_VALUE)
         {
-            std::cout << "No serialization DLLs found in " << std::filesystem::absolute(a_Directory.parent_path()).generic_string() << std::endl;
+            hako::Log("No serialization DLLs found in \"%ls\"\n", std::filesystem::absolute(a_Directory.parent_path()).c_str());
             return;
         }
 
@@ -33,7 +32,7 @@ namespace hako
 
         if (GetLastError() != ERROR_NO_MORE_FILES)
         {
-            std::cout << "An error occurred while trying to get all DLLs in " << std::filesystem::absolute(a_Directory.parent_path()).generic_string() << std::endl;
+            hako::Log("An error occurred while trying to get all DLLs in \"%ls\"\n", std::filesystem::absolute(a_Directory.parent_path()).c_str());
         }
 
         FindClose(fileHandle);
@@ -114,7 +113,7 @@ SerializerList::SerializerList()
 
                 m_LoadedSharedLibraries.push_back(serializerDLL);
 
-                std::wcout << L"Loaded " << name << std::endl;
+                hako::Log(L"Loaded %ls\n", name.c_str());
             }
             else
             {

@@ -8,6 +8,7 @@ set(HEADERS
     inc/IFileSerializer.h
     inc/HakoFile.h
     inc/HakoPlatforms.h
+    private/HakoLog.h
     private/SerializerList.h
     private/MurmurHash3.h
 )
@@ -18,6 +19,7 @@ set(SOURCES
     src/IFile.cpp
     src/IFileSerializer.cpp
     src/HakoFile.cpp
+    private/HakoLog.cpp
     private/SerializerList.cpp
     private/MurmurHash3.cpp
 )
@@ -33,6 +35,10 @@ endif(HAKO_READ_OUTSIDE_OF_ARCHIVE)
 if(HAKO_NO_DYNAMIC_SERIALIZERS)
     add_compile_definitions("HAKO_NO_DYNAMIC_SERIALIZERS")
 endif(HAKO_NO_DYNAMIC_SERIALIZERS)
+
+if(HAKO_NO_LOG)
+    add_compile_definitions("HAKO_NO_LOG")
+endif(HAKO_NO_LOG)
 
 # Create library for Hako
 add_library(HakoLib EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})

@@ -15,6 +15,9 @@ Hako will attempt to read the file from the intermediate directory, so be sure t
 ## HAKO_NO_DYNAMIC_SERIALIZERS
 When defined, Hako will not try to load any serializers from dll files.
 
+## HAKO_NO_LOG
+When defined, Hako will not output anything to the console. Note that this does not include log messages specific to command-line Hako.
+
 # Creating And Registering New Serializers
 To create a new serializer, inherit from `hako::IFileSerializer` and implement its functions.  
 Serializers that are compiled to a dll should use the macro `HAKO_ADD_DYNAMIC_SERIALIZER(SerializerClass)` in their source file to make sure Hako can use them.  

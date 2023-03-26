@@ -1,6 +1,7 @@
 #include "Hako.h"
 #include "HakoFile.h"
 
+#include "HakoLog.h"
 #include "MurmurHash3.h"
 #include "SerializerList.h"
 
@@ -32,15 +33,6 @@ namespace hako
 
     /** The factory function to use for file IO */
     FileFactorySignature s_FileFactory = hako::HakoFileFactory;
-
-    void Log(char const* a_Format, ...)
-    {
-        printf("[Hako] ");
-        va_list args;
-        va_start(args, a_Format);
-        vprintf(a_Format, args);
-        va_end(args);
-    }
 
     void SetFileIO(FileFactorySignature a_FileFactory)
     {
