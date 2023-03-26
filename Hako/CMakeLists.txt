@@ -30,6 +30,10 @@ if(HAKO_READ_OUTSIDE_OF_ARCHIVE)
     add_compile_definitions("HAKO_READ_OUTSIDE_OF_ARCHIVE")
 endif(HAKO_READ_OUTSIDE_OF_ARCHIVE)
 
+if(HAKO_NO_DYNAMIC_SERIALIZERS)
+    add_compile_definitions("HAKO_NO_DYNAMIC_SERIALIZERS")
+endif(HAKO_NO_DYNAMIC_SERIALIZERS)
+
 # Create library for Hako
 add_library(HakoLib EXCLUDE_FROM_ALL ${SOURCES} ${HEADERS})
 

@@ -41,9 +41,9 @@ void PrintHelp()
 --help
     Print this help message and quit
 
---intermediate_dir <path_to_intermediate_directory>
+--intermediate <path_to_intermediate_directory>
     Path to the intermediate asset directory. Required for both serialization and archive creation.
-    Defaults to \"./%s/\"
+    Defaults to "./%s/"
 
 --serialize <path_to_serialize> [<path_to_serialize>...]
     Specify paths of files or directories to serialize. Should be relative to your working directory.
@@ -72,10 +72,10 @@ printf(R"""(
 
     printf(R"""(
 Example usage:
-    Hako --platform Windows --serialize Assets/Models Assets/Textures --intermediate_dir intermediate
-    Hako --platform Windows --serialize Assets --ext gltf --intermediate_dir intermediate
-    Hako --intermediate_dir intermediate --archive arc.bin --overwrite_archive
-    Hako --platform Windows --serialize Assets --intermediate_dir intermediate --archive arc.bin --overwrite_archive
+    Hako --platform Windows --serialize Assets/Models Assets/Textures --intermediate intermediate
+    Hako --platform Windows --serialize Assets --ext gltf --intermediate intermediate
+    Hako --intermediate intermediate --archive arc.bin --overwrite_archive
+    Hako --platform Windows --serialize Assets --intermediate intermediate --archive arc.bin --overwrite_archive
 )""");
 }
 
@@ -114,7 +114,7 @@ CommandLineParams ParseCommandLineParams(int argc, char* argv[])
         {
             params.archivePath = GetFlagValue(i, argc, argv);
         }
-        else if (params.intermediateDirectory == nullptr && strcmp(argv[i], "--intermediate_dir") == 0)
+        else if (params.intermediateDirectory == nullptr && strcmp(argv[i], "--intermediate") == 0)
         {
             params.intermediateDirectory = GetFlagValue(i, argc, argv);
         }

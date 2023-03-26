@@ -1,6 +1,8 @@
 #include "SerializerList.h"
 
-#if defined(_WIN32)
+#include "HakoLog.h"
+
+#if defined(_WIN32) && !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 #include <fileapi.h>
 #include <shellapi.h>
 
@@ -10,6 +12,7 @@
 
 namespace hako
 {
+#if !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 #if defined(_WIN32)
     void FindDllFilesInDirectory(std::filesystem::path a_Directory, std::vector<std::wstring>& a_OutFileList)
     {
@@ -56,7 +59,8 @@ namespace hako
             LocalFree(argv);
         }
     }
-#endif
+#endif // defined(_WIN32)
+#endif // !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 }
 
 using namespace hako;
@@ -91,6 +95,7 @@ IFileSerializer* hako::SerializerList::GetSerializerForFile(const std::string& a
 
 SerializerList::SerializerList()
 {
+#if !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 #if defined(_WIN32)
     // Find and load DLLs that (might) contain serializers
     std::vector<std::wstring> dllNames;
@@ -117,7 +122,8 @@ SerializerList::SerializerList()
             }
         }
     }
-#endif
+#endif // defined(_WIN32)
+#endif // !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 }
 
 hako::SerializerList::~SerializerList()
@@ -128,12 +134,14 @@ hako::SerializerList::~SerializerList()
 
 void hako::SerializerList::FreeDynamicSerializers()
 {
+#if !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 #if defined(_WIN32)
     for (HMODULE const& m : m_LoadedSharedLibraries)
     {
         FreeLibrary(m);
     }
     m_LoadedSharedLibraries.clear();
-#endif
+#endif // defined(_WIN32)
+#endif // !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 }
 
