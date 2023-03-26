@@ -27,8 +27,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 add_subdirectory("Hako")
 
 if(HAKO_STANDALONE)
-	add_compile_definitions("HAKO_STANDALONE")
-
 	# Add source to this project's executable.
 	add_executable (Hako "main.cpp")
 
