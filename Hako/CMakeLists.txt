@@ -4,10 +4,11 @@ cmake_minimum_required (VERSION 3.8)
 # Set headers for Hako
 set(HEADERS
     inc/Hako.h
-    inc/IFile.h
-    inc/IFileSerializer.h
+    inc/HakoCmd.h
     inc/HakoFile.h
     inc/HakoPlatforms.h
+    inc/IFile.h
+    inc/IFileSerializer.h
     private/HakoLog.h
     private/SerializerList.h
     private/MurmurHash3.h
@@ -16,9 +17,10 @@ set(HEADERS
 # Set sources for Hako
 set(SOURCES
     src/Hako.cpp
+    src/HakoCmd.cpp
+    src/HakoFile.cpp
     src/IFile.cpp
     src/IFileSerializer.cpp
-    src/HakoFile.cpp
     private/HakoLog.cpp
     private/SerializerList.cpp
     private/MurmurHash3.cpp
