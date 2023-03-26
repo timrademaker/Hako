@@ -12,6 +12,8 @@
 
 namespace hako
 {
+    inline constexpr char DefaultIntermediatePath[] = "HakoIntermediate";
+
     using FileFactorySignature = std::function<std::unique_ptr<IFile>(char const* a_FilePath, FileOpenMode a_FileOpenMode)>;
 
     /**
@@ -55,8 +57,6 @@ namespace hako
     class Archive final
     {
     public:
-        static constexpr char DefaultIntermediatePath[] = "HakoIntermediate";
-
         struct FileInfo
         {
             static constexpr size_t MaxFilePathHashLength = 33;

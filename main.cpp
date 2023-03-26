@@ -57,7 +57,7 @@ void PrintHelp()
 
 --platform <platform_name>
     Specify the platform to serialize the assets for
-    Available platforms: )""", hako::Archive::DefaultIntermediatePath);
+    Available platforms: )""", hako::DefaultIntermediatePath);
 
     PrintAvailablePlatforms(", ");
     printf("\n");
@@ -83,6 +83,7 @@ struct CommandLineParams
 {
     // The name of the platform we're serializing or archiving files for
     std::string platformName{};
+    hako::Platform platformEnum = hako::Platform::Invalid;
     // Paths to whatever we're expected to serialize. Can be a directories or files.
     std::vector<char const*> pathsToSerialize{};
     // When set, only serialize files with this extension
@@ -148,27 +149,43 @@ CommandLineParams ParseCommandLineParams(int argc, char* argv[])
     return params;
 }
 
-bool VerifyCommandLineParameters(CommandLineParams const& a_Params)
+bool VerifyCommandLineParameters(CommandLineParams& a_Params)
 {
+    bool success = true;
+
     if (a_Params.intermediateDirectory == nullptr)
     {
-        printf("No intermediate directory specified. Use --help for more info.\n");
-        return false;
+        printf("No intermediate directory specified. Defaulting to %s\n", hako::DefaultIntermediatePath);
+        a_Params.intermediateDirectory = hako::DefaultIntermediatePath;
     }
 
     if (a_Params.platformName.empty())
     {
-        printf("No platform name specified. Use --help for more info.\n");
-        return false;
+        printf("No platform name specified.\n");
+        success = false;
     }
 
     if (!a_Params.archivePath && a_Params.pathsToSerialize.empty())
     {
-        printf("No archive path or paths to serialize specified. Use --help for more info.\n");
-        return false;
+        printf("No archive path or paths to serialize specified.\n");
+        success = false;
     }
 
-    return true;
+    a_Params.platformEnum = hako::GetPlatformByName(a_Params.platformName.c_str());
+    if (a_Params.platformEnum == hako::Platform::Invalid)
+    {
+        printf("Invalid platform '%s' specified!\nAvailable platforms:\n", a_Params.platformName.c_str());
+        PrintAvailablePlatforms("\n");
+
+        success = false;
+    }
+
+    if(!success)
+    {
+        printf("Use --help for more info.\n");
+    }
+
+    return success;
 }
 
 int main(int argc, char* argv[])
@@ -179,7 +196,7 @@ int main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    auto const params = ParseCommandLineParams(argc, argv);
+    auto params = ParseCommandLineParams(argc, argv);
 
     if(params.m_ShouldPrintHelp)
     {
@@ -192,20 +209,11 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    const hako::Platform targetPlatform = hako::GetPlatformByName(params.platformName.c_str());
-    if (targetPlatform == hako::Platform::Invalid)
-    {
-        printf("Invalid platform '%s' specified!\nAvailable platforms:\n", params.platformName.c_str());
-        PrintAvailablePlatforms("\n");
-
-        return EXIT_FAILURE;
-    }
-
     bool success = true;
 
     for (auto const& path : params.pathsToSerialize)
     {
-        if (hako::Serialize(targetPlatform, params.intermediateDirectory, path, params.forceSerialization, params.fileExtensionToSerialize))
+        if (hako::Serialize(params.platformEnum, params.intermediateDirectory, path, params.forceSerialization, params.fileExtensionToSerialize))
         {
             printf("Successfully serialized %s\n", path);
         }
@@ -219,7 +227,7 @@ int main(int argc, char* argv[])
     // Only create an archive if we have an archive path and nothing before this failed
     if (params.archivePath && success)
     {
-        success = hako::CreateArchive(targetPlatform, params.intermediateDirectory, params.archivePath, params.overwriteExistingArchive);
+        success = hako::CreateArchive(params.platformEnum, params.intermediateDirectory, params.archivePath, params.overwriteExistingArchive);
         if (success)
         {
             printf("Successfully created archive %s\n", params.archivePath);
