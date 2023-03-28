@@ -61,15 +61,16 @@ if(HAKO_NO_LOG)
 endif(HAKO_NO_LOG)
 
 # Create library for Hako
-add_library(HakoLib ${SOURCES} ${HEADERS})
+add_library(Hako ${SOURCES} ${HEADERS})
 
 # Add include directories
-target_include_directories(HakoLib PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
-target_include_directories(HakoLib PRIVATE ${CMAKE_CURRENT_LIST_DIR}/private)
+target_include_directories(Hako PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
+target_include_directories(Hako PRIVATE ${CMAKE_CURRENT_LIST_DIR}/private)
 
 if(HAKO_STANDALONE)
 	# Add source to this project's executable.
-	add_executable (Hako "main.cpp")
+	add_executable(HakoExe "main.cpp")
 
-	target_link_libraries(Hako PRIVATE HakoLib)
+	target_link_libraries(HakoExe PRIVATE Hako)
+    set_target_properties(HakoExe PROPERTIES RUNTIME_OUTPUT_NAME Hako)
 endif(HAKO_STANDALONE)
