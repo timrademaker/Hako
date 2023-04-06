@@ -30,7 +30,7 @@ set(HEADERS
     inc/HakoFile.h
     inc/HakoPlatforms.h
     inc/IFile.h
-    inc/IFileSerializer.h
+    inc/Serializer.h
     private/HakoLog.h
     private/SerializerList.h
     private/MurmurHash3.h
@@ -42,7 +42,7 @@ set(SOURCES
     src/HakoCmd.cpp
     src/HakoFile.cpp
     src/IFile.cpp
-    src/IFileSerializer.cpp
+    src/Serializer.cpp
     private/HakoLog.cpp
     private/SerializerList.cpp
     private/MurmurHash3.cpp

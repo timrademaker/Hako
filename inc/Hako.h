@@ -2,10 +2,9 @@
 
 #include "HakoPlatforms.h"
 #include "IFile.h"
-#include "IFileSerializer.h"
+#include "Serializer.h"
 
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -17,20 +16,18 @@ namespace hako
     using FileFactorySignature = std::function<std::unique_ptr<IFile>(char const* a_FilePath, FileOpenMode a_FileOpenMode)>;
 
     /**
-     * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file couldn't be opened
+     * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file could not be opened
      * @param a_FileFactory A file factory matching the function signature of FileFactorySignature
      */
     void SetFileIO(FileFactorySignature a_FileFactory);
 
     /**
      * Add a serializer to use for serialization
-     * @note The serializer should inherit from IFileSerializer
      */
-    template<typename Serializer>
-    std::enable_if_t<std::is_base_of_v<IFileSerializer, Serializer>, void> AddSerializer()
+    inline void AddSerializer(Serializer const& a_FileSerializer)
     {
-        extern void AddSerializer_Internal(IFileSerializer * a_FileSerializer);
-        AddSerializer_Internal(new Serializer);
+        extern void AddSerializer_Internal(Serializer);
+        AddSerializer_Internal(a_FileSerializer);
     }
 
     /**
@@ -142,9 +139,9 @@ namespace hako
 #endif
 
 // Macro to register serializer from dll
-#define HAKO_ADD_DYNAMIC_SERIALIZER(SerializerClass) \
+#define HAKO_ADD_DYNAMIC_SERIALIZER(SerializerPredicate, SerializationFunction) \
 extern "C" { \
-    HAKO_DLL_EXPORT hako::IFileSerializer* __stdcall CreateHakoSerializer() { \
-        return new SerializerClass; \
+    HAKO_DLL_EXPORT hako::Serializer __stdcall CreateHakoSerializer() { \
+        return hako::Serializer{SerializerPredicate, SerializationFunction}; \
     } \
 }

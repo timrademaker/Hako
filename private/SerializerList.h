@@ -1,8 +1,6 @@
 #pragma once
 
-#include "IFileSerializer.h"
-
-#include <memory>
+#include "Serializer.h"
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -29,9 +27,9 @@ namespace hako
 
         /**
          * Add a serializer that can be used for file serialization
-         * @param a_Serializer The serializer to add. Takes ownership of the serializer.
+         * @param a_Serializer The serializer to add
          */
-        void AddSerializer(IFileSerializer* a_Serializer);
+        void AddSerializer(Serializer a_Serializer);
 
         /**
         * Get the serializer to use for a file
@@ -39,7 +37,7 @@ namespace hako
         * @param a_TargetPlatform The platform the file should be serialized for
         * @return A non-owning pointer to the serializer if one was found, or a nullptr if no serializer could be found.
         */
-        IFileSerializer* GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const;
+        Serializer const* GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const;
 
     private:
         SerializerList();
@@ -49,7 +47,7 @@ namespace hako
 
     private:
         /** All file serializers provided by the user */
-        std::vector<std::unique_ptr<IFileSerializer>> m_FileSerializers;
+        std::vector<Serializer> m_FileSerializers;
 
 #if defined(_WIN32)
         std::vector<HMODULE> m_LoadedSharedLibraries;

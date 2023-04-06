@@ -70,21 +70,21 @@ SerializerList& hako::SerializerList::GetInstance()
     return instance;
 }
 
-void hako::SerializerList::AddSerializer(IFileSerializer* a_Serializer)
+void hako::SerializerList::AddSerializer(Serializer a_Serializer)
 {
-    m_FileSerializers.push_back(std::unique_ptr<IFileSerializer>(a_Serializer));
+    m_FileSerializers.push_back(a_Serializer);
 }
 
-IFileSerializer* hako::SerializerList::GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const
+Serializer const* hako::SerializerList::GetSerializerForFile(char const* a_FileName, Platform a_TargetPlatform) const
 {
-    IFileSerializer* serializer = nullptr;
+    Serializer const* serializer = nullptr;
 
     // Find serializer for this file
     for (auto const& m_FileSerializer : m_FileSerializers)
     {
-        if (m_FileSerializer->ShouldHandleFile(a_FileName, a_TargetPlatform))
+        if (m_FileSerializer.m_ShouldSerializeFile(a_FileName, a_TargetPlatform))
         {
-            serializer = m_FileSerializer.get();
+            serializer = &m_FileSerializer;
             break;
         }
     }
@@ -102,7 +102,7 @@ SerializerList::SerializerList()
 
     for (auto& name : dllNames)
     {
-        typedef hako::IFileSerializer* (*SerializerFactory_t)();
+        typedef hako::Serializer(*SerializerFactory_t)();
         auto serializerDLL = LoadLibraryW(name.c_str());
         if (serializerDLL)
         {
@@ -143,4 +143,3 @@ void hako::SerializerList::FreeDynamicSerializers()
 #endif // defined(_WIN32)
 #endif // !defined(HAKO_NO_DYNAMIC_SERIALIZERS)
 }
-
