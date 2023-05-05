@@ -392,7 +392,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     if (m_ArchiveReader == nullptr)
     {
         hako::Log("Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
-        assert(m_ArchiveReader == nullptr);
+        assert(m_ArchiveReader != nullptr);
         return;
     }
 
