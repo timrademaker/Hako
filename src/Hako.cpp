@@ -301,6 +301,7 @@ namespace hako
             return intermediateFile->Write(0, data);
         }
 
+        hako::Log("Using default serializer for %s\n", a_FilePath);
         return DefaultSerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
     }
 
