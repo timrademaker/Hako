@@ -6,31 +6,31 @@ project ("Hako" LANGUAGES CXX)
 
 # Set the C++ language standard
 set(CMAKE_CXX_STANDARD
-	17
+    17
 )
 set(CMAKE_CXX_STANDARD_REQUIRED
-	True
+    True
 )
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
-	${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/bin
+    ${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/bin
 )
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY 
-	${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/lib
+    ${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/lib
 )
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
-	${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/lib
+    ${CMAKE_CURRENT_LIST_DIR}/bin/${BUILD_PLATFORM}/${CMAKE_BUILD_TYPE}/lib
 )
 
 # Set headers for Hako
 set(HEADERS
-    inc/Hako.h
-    inc/HakoCmd.h
-    inc/HakoFile.h
-    inc/HakoPlatforms.h
-    inc/IFile.h
-    inc/Serializer.h
+    "inc/Hako/Hako.h"
+    "inc/Hako/HakoCmd.h"
+    "inc/Hako/HakoFile.h"
+    "inc/Hako/HakoPlatforms.h"
+    "inc/Hako/IFile.h"
+    "inc/Hako/Serializer.h"
     private/HakoLog.h
     private/SerializerList.h
     private/MurmurHash3.h
@@ -65,12 +65,12 @@ add_library(Hako ${SOURCES} ${HEADERS})
 
 # Add include directories
 target_include_directories(Hako PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
-target_include_directories(Hako PRIVATE ${CMAKE_CURRENT_LIST_DIR}/private)
+target_include_directories(Hako PRIVATE ${CMAKE_CURRENT_LIST_DIR}/private ${CMAKE_CURRENT_LIST_DIR}/inc/Hako)
 
 if(HAKO_STANDALONE)
-	# Add source to this project's executable.
-	add_executable(HakoExe "main.cpp")
+    # Add source to this project's executable.
+    add_executable(HakoExe "main.cpp")
 
-	target_link_libraries(HakoExe PRIVATE Hako)
+    target_link_libraries(HakoExe PRIVATE Hako)
     set_target_properties(HakoExe PROPERTIES RUNTIME_OUTPUT_NAME Hako)
 endif(HAKO_STANDALONE)
