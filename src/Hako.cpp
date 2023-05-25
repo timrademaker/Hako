@@ -371,6 +371,16 @@ using namespace hako;
 Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory, Platform a_Platform)
 {
     m_FilesInArchive.clear();
+
+    // Open archive
+    m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
+    if (m_ArchiveReader == nullptr)
+    {
+        hako::Log("Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
+        assert(m_ArchiveReader != nullptr);
+        return;
+    }
+
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     m_IntermediateDirectory = std::string(a_IntermediateDirectory);
 
@@ -388,15 +398,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     m_CurrentPlatform = a_Platform;
 #endif
 
-    // Open archive
-    m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
-    if (m_ArchiveReader == nullptr)
-    {
-        hako::Log("Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
-        assert(m_ArchiveReader != nullptr);
-        return;
-    }
-
+    // Read from archive
     std::vector<char> buffer{};
     buffer.resize(sizeof(ArchiveHeader));
     m_ArchiveReader->Read(sizeof(ArchiveHeader), 0, buffer);
