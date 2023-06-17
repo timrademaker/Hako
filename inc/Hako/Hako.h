@@ -57,6 +57,16 @@ namespace hako
      */
     bool Serialize(Platform a_TargetPlatform, char const* a_Path, bool a_ForceSerialization = false, char const* a_FileExt = nullptr);
 
+    /**
+     * Export an in-memory resource.
+     * This could be useful if a resource is embedded in another resource, but you do not want to save it as such.
+     * An example of this would be a texture embedded into a gltf model.
+     * @param a_TargetPlatform The platform for which to export the file
+     * @param a_ResourceName The name of the resource to export
+     * @param a_Data The data to export
+     */
+    bool ExportResource(Platform a_TargetPlatform, char const* a_ResourceName, std::vector<char> const& a_Data);
+
     class Archive final
     {
     public:

@@ -412,6 +412,17 @@ namespace hako
 
         return false;
     }
+
+    bool ExportResource(Platform a_TargetPlatform, char const* a_ResourceName, const std::vector<char>& a_Data)
+    {
+        FilePathHashStr fileHashHex{};
+        HashFilePath(a_ResourceName, fileHashHex);
+
+        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_ResourceName);
+
+        auto const intermediateFile = s_FileFactory(intermediatePath.generic_string().c_str(), FileOpenMode::WriteTruncate);
+        return intermediateFile->Write(0, a_Data);
+    }
 }
 
 using namespace hako;
