@@ -10,7 +10,7 @@ HakoFile::~HakoFile()
 	CloseFile();
 }
 
-bool HakoFile::Open(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
+bool HakoFile::Open(std::string const& a_FilePath, FileOpenMode a_FileOpenMode)
 {
 	int openFlags = 0;
 	if (a_FileOpenMode == FileOpenMode::Read)
@@ -52,7 +52,7 @@ size_t HakoFile::GetFileSize()
 	return m_FileHandle->tellg();
 }
 
-bool HakoFile::Write(size_t a_Offset, const std::vector<char>& a_Data)
+bool HakoFile::Write(size_t a_Offset, std::vector<char> const& a_Data)
 {
 	assert(m_FileHandle != nullptr);
 
@@ -74,7 +74,7 @@ void HakoFile::CloseFile()
 	}
 }
 
-std::unique_ptr<IFile> hako::HakoFileFactory(const std::string& a_FilePath, FileOpenMode a_FileOpenMode)
+std::unique_ptr<IFile> hako::HakoFileFactory(std::string const& a_FilePath, FileOpenMode a_FileOpenMode)
 {
 	std::unique_ptr<HakoFile> file = std::make_unique<HakoFile>();
 	if (file->Open(a_FilePath, a_FileOpenMode))

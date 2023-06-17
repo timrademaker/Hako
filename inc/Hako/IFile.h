@@ -35,7 +35,7 @@ namespace hako
          * @param a_Data The data to write to the file
          * @return True if writing was successful
          */
-        virtual bool Write(size_t a_Offset, const std::vector<char>& a_Data) = 0;
+        virtual bool Write(size_t a_Offset, std::vector<char> const& a_Data) = 0;
 
         /**
          * Get the size of the opened file

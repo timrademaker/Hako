@@ -11,11 +11,58 @@
 
 namespace
 {
+    inline constexpr size_t MaxFilePathHashLength = 33;
+    using FilePathHashStr = char[MaxFilePathHashLength];
+
     std::string IntermediateDirectory{ hako::DefaultIntermediateDirectory };
+
+    void HashedPathToHash(std::filesystem::path const& a_Path, hako::FilePathHash& a_OutHash)
+    {
+        static constexpr uint8_t HashPartCount = 2;
+        static constexpr size_t PartialHashLength = (MaxFilePathHashLength - 1) / HashPartCount;
+
+        std::string partialHash;
+        partialHash.resize(PartialHashLength + 1);
+
+        auto const path = a_Path.filename().generic_string();
+        size_t offset = 0;
+
+        for(auto& outHash : a_OutHash)
+        {
+            strncpy_s(partialHash.data(), partialHash.length(), path.c_str() + offset, PartialHashLength);
+            outHash = std::stoull(partialHash, nullptr, 16);
+
+            offset += PartialHashLength;
+        }
+    }
+
+    /**
+     * @return < 0 if a_Lhs < a_Rhs
+     * @return 0 if the hashes are the same
+     * @return > 0 if a_Lhs > a_Rhs
+     */
+    int CompareHash(hako::FilePathHash const& a_Lhs, hako::FilePathHash const& a_Rhs)
+    {
+        for(size_t i = 0; i < std::size(a_Lhs); ++i)
+        {
+            if(a_Lhs[i] < a_Rhs[i])
+            {
+                return -1;
+            }
+            else if(a_Lhs[i] > a_Rhs[i])
+            {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+}
+
 namespace hako
 {
     constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
-    constexpr uint8_t HeaderVersion = 2;
+    constexpr uint8_t ArchiveVersion = 2;
     constexpr char ArchiveMagic[] = { 'H', 'A', 'K', 'O' };
     constexpr uint8_t MagicLength = sizeof(ArchiveMagic);
     constexpr uint32_t Murmur3Seed = 0x48'41'4B'4F;
@@ -28,7 +75,7 @@ namespace hako
         }
 
         char m_Magic[MagicLength]{};
-        uint8_t m_HeaderVersion = HeaderVersion;
+        uint8_t m_ArchiveVersion = ArchiveVersion;
         uint8_t m_HeaderSize = sizeof(ArchiveHeader);
         char m_Padding[2] = {};
         uint32_t m_FileCount = 0;
@@ -42,11 +89,16 @@ namespace hako
         s_FileFactory = std::move(a_FileFactory);
     }
 
-    void HashFilePath(char const* a_FilePath, char* out_buffer, size_t out_buffer_len)
+    void HashFilePath(char const* a_FilePath, FilePathHash& a_OutHash)
+    {
+        MurmurHash3_x64_128(a_FilePath, strlen(a_FilePath), Murmur3Seed, a_OutHash);
+    }
+
+    void HashFilePath(char const* a_FilePath, FilePathHashStr a_OutBuffer, size_t a_OutBufferSize = sizeof(FilePathHashStr))
     {
         uint64_t hash[2]{};
         MurmurHash3_x64_128(a_FilePath, strlen(a_FilePath), Murmur3Seed, hash);
-        snprintf(out_buffer, out_buffer_len, "%zX%zX", hash[0], hash[1]);
+        snprintf(a_OutBuffer, a_OutBufferSize, "%zX%zX", hash[0], hash[1]);
     }
 
     void EnsureIntermediateDirectoryExists(std::filesystem::path const& a_Directory)
@@ -76,8 +128,8 @@ namespace hako
         std::filesystem::path intermediateFilePath = GetIntermediateDirectoryPath(a_TargetPlatform);
         EnsureIntermediateDirectoryExists(intermediateFilePath);
 
-        char fileHashHex[Archive::FileInfo::MaxFilePathHashLength]{};
-        HashFilePath(a_FilePath, fileHashHex, sizeof(fileHashHex));
+        FilePathHashStr fileHashHex{};
+        HashFilePath(a_FilePath, fileHashHex);
 
         intermediateFilePath.append(fileHashHex);
 
@@ -184,19 +236,21 @@ namespace hako
             return false;
         }
 
-        struct HashFileNamePair
+        struct HashPathPair
         {
-            HashFileNamePair(std::filesystem::path const& a_FilePath)
+            HashPathPair(std::filesystem::path const& a_FilePath)
                 : m_FilePath(a_FilePath.generic_string())
             {
-                strncpy_s(m_FilePathHash, sizeof(m_FilePathHash), a_FilePath.filename().generic_string().c_str(), Archive::FileInfo::MaxFilePathHashLength);
+                HashedPathToHash(a_FilePath, m_FilePathHash);
             }
 
+            // Full file path (with hashed file name)
             std::string m_FilePath{};
-            char m_FilePathHash[Archive::FileInfo::MaxFilePathHashLength]{};
+            // Hashed file name
+            FilePathHash m_FilePathHash;
         };
 
-        std::vector<HashFileNamePair> filePaths;
+        std::vector<HashPathPair> filePaths;
         filePaths.reserve(256);
 
         for (std::filesystem::directory_entry const& dirEntry :
@@ -218,9 +272,9 @@ namespace hako
         }
 
         // Sort file hashes alphabetically
-        std::sort(filePaths.begin(), filePaths.end(), [](HashFileNamePair const& a_Lhs, HashFileNamePair const& a_Rhs)
+        std::sort(filePaths.begin(), filePaths.end(), [](HashPathPair const& a_Lhs, HashPathPair const& a_Rhs)
             {
-                return strcmp(a_Lhs.m_FilePathHash, a_Rhs.m_FilePathHash) < 0;
+                return CompareHash(a_Lhs.m_FilePathHash, a_Rhs.m_FilePathHash) < 0;
             }
         );
 
@@ -232,7 +286,7 @@ namespace hako
             std::unique_ptr<IFile> currentFile = s_FileFactory(filePaths[fileIndex].m_FilePath.c_str(), FileOpenMode::Read);
 
             Archive::FileInfo fi{};
-            strncpy_s(fi.m_FilePathHash, sizeof(fi.m_FilePathHash), filePaths[fileIndex].m_FilePathHash, Archive::FileInfo::MaxFilePathHashLength);
+            std::copy_n(filePaths[fileIndex].m_FilePathHash, std::size(fi.m_FilePathHash), fi.m_FilePathHash);
             fi.m_Offset = sizeof(ArchiveHeader) + sizeof(Archive::FileInfo) * filePaths.size() + totalFileSize;
 
             fi.m_Size = ArchiveFile(archive.get(), filePaths[fileIndex].m_FilePath.c_str(), fi);
@@ -408,7 +462,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
         return;
     }
 
-    if (header.m_HeaderVersion != HeaderVersion)
+    if (header.m_ArchiveVersion != ArchiveVersion)
     {
         hako::Log("Archive version mismatch. The archive should be rebuilt.\n");
         assert(false);
@@ -453,14 +507,14 @@ bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_Data) const
 Archive::FileInfo const* Archive::GetFileInfo(char const* a_FileName) const
 {
     assert(!m_FilesInArchive.empty());
-
-    char filePathHash[Archive::FileInfo::MaxFilePathHashLength]{};
-    HashFilePath(a_FileName, filePathHash, Archive::FileInfo::MaxFilePathHashLength);
+    
+    FilePathHash filePathHash{};
+    HashFilePath(a_FileName, filePathHash);
 
     // Find file (assumes that file names were sorted before this)
-    auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), filePathHash, [](FileInfo const& a_Lhs, char const* a_Rhs)
+    auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), filePathHash, [](FileInfo const& a_Lhs, FilePathHash const& a_Rhs)
         {
-            return strcmp(a_Lhs.m_FilePathHash, a_Rhs) < 0;
+            return CompareHash(a_Lhs.m_FilePathHash, a_Rhs) < 0;
         }
     );
 
@@ -477,8 +531,8 @@ Archive::FileInfo const* Archive::GetFileInfo(char const* a_FileName) const
 bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& a_Data) const
 {
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    char fileNameHash[Archive::FileInfo::MaxFilePathHashLength]{};
-    HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
+    FilePathHashStr fileNameHash{};
+    HashFilePath(a_FileName, fileNameHash);
 
     auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, a_FileName);
     if (!std::filesystem::exists(intermediatePath))
