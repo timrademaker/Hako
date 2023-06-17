@@ -11,9 +11,10 @@
 
 namespace hako
 {
-    inline constexpr char DefaultIntermediatePath[] = "HakoIntermediate";
+    inline constexpr char DefaultIntermediateDirectory[] = "HakoIntermediate";
 
     using FileFactorySignature = std::function<std::unique_ptr<IFile>(char const* a_FilePath, FileOpenMode a_FileOpenMode)>;
+    using FilePathHash = uint64_t[2];
 
     /**
      * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file could not be opened
@@ -31,25 +32,30 @@ namespace hako
     }
 
     /**
+     * Set the intermediate directory to which assets will be exported.
+     * If intermediate file reading is enabled, intermediate assets will also be read from here.
+     * @param a_IntermediateDirectory The directory to which intermediate files should be exported
+     */
+    void SetIntermediateDirectory(char const* a_IntermediateDirectory);
+
+    /**
      * Create an archive
      * @param a_TargetPlatform The platform for which to create the archive
-     * @param a_IntermediateDirectory The directory in which intermediate assets are located
      * @param a_ArchiveName The name of the archive to output
      * @param a_OverwriteExistingFile If a file with the provided name already exists, a value of true will result in this file being overwritten
      * @return True if the archive was created successfully
      */
-    bool CreateArchive(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_ArchiveName, bool a_OverwriteExistingFile = false);
+    bool CreateArchive(Platform a_TargetPlatform, char const* a_ArchiveName, bool a_OverwriteExistingFile = false);
 
     /**
      * Serialize a file or the content of a directory into the intermediate directory
      * @param a_TargetPlatform The platform for which to serialize the file
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
      * @param a_Path The file or directory to serialize
      * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
      * @param a_FileExt When set, only serialize assets with the given file extension if a_Path is a directory
      * @return True if the file was serialized successfully
      */
-    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, bool a_ForceSerialization = false, char const* a_FileExt = nullptr);
+    bool Serialize(Platform a_TargetPlatform, char const* a_Path, bool a_ForceSerialization = false, char const* a_FileExt = nullptr);
 
     class Archive final
     {
@@ -69,10 +75,10 @@ namespace hako
         /**
          * Open an archive for reading
          * @param a_ArchivePath The path to the archive to open
-         * @param a_IntermediateDirectory The directory in which intermediate files are located. Used when intermediate file reading is enabled.
+         * @param a_IntermediateDirectory The directory in which intermediate files are located. Overrides whatever directory was passed to SetIntermediateDirectory.
          * @param a_Platform The current platform. Used when intermediate file reading is enabled.
          */
-        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = DefaultIntermediatePath, Platform a_Platform = Platform::Windows);
+        Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr, Platform a_Platform = Platform::Windows);
         ~Archive() = default;
 
         Archive(Archive&) = delete;
@@ -118,9 +124,6 @@ namespace hako
         std::vector<FileInfo> m_FilesInArchive;
         /** The instance of FileIO that is currently being used to read from the archive */
         std::unique_ptr<IFile> m_ArchiveReader = nullptr;
-
-        /** The intermediate asset directory. Only needs to be set when reading outside of the archive */
-        std::string m_IntermediateDirectory{};
 
         /** Timestamp of the last time the archive was modified when we opened it */
         time_t m_LastWriteTimestamp = 0;

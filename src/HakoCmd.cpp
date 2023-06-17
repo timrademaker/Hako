@@ -60,7 +60,7 @@ namespace hako
 
 --platform <platform_name>
     Specify the platform to serialize the assets for
-    Available platforms: )""", hako::DefaultIntermediatePath);
+    Available platforms: )""", hako::DefaultIntermediateDirectory);
 
         PrintAvailablePlatforms(", ");
         printf("\n");
@@ -158,8 +158,8 @@ Example usage:
 
         if (a_Params.intermediateDirectory == nullptr)
         {
-            printf("No intermediate directory specified. Defaulting to %s\n", hako::DefaultIntermediatePath);
-            a_Params.intermediateDirectory = hako::DefaultIntermediatePath;
+            printf("No intermediate directory specified. Defaulting to %s\n", hako::DefaultIntermediateDirectory);
+            a_Params.intermediateDirectory = hako::DefaultIntermediateDirectory;
         }
 
         if (a_Params.platformName.empty())
@@ -216,9 +216,14 @@ Example usage:
 
         bool success = true;
 
+        if (params.intermediateDirectory)
+        {
+            SetIntermediateDirectory(params.intermediateDirectory);
+        }
+
         for (auto const& path : params.pathsToSerialize)
         {
-            if (hako::Serialize(params.platformEnum, params.intermediateDirectory, path, params.forceSerialization, params.fileExtensionToSerialize))
+            if (hako::Serialize(params.platformEnum, path, params.forceSerialization, params.fileExtensionToSerialize))
             {
                 printf("Successfully serialized %s\n", path);
             }
@@ -232,7 +237,7 @@ Example usage:
         // Only create an archive if we have an archive path and nothing before this failed
         if (params.archivePath && success)
         {
-            success = hako::CreateArchive(params.platformEnum, params.intermediateDirectory, params.archivePath, params.overwriteExistingArchive);
+            success = hako::CreateArchive(params.platformEnum, params.archivePath, params.overwriteExistingArchive);
             if (success)
             {
                 printf("Successfully created archive %s\n", params.archivePath);

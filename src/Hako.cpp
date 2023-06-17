@@ -9,6 +9,9 @@
 #include <cassert>
 #include <filesystem>
 
+namespace
+{
+    std::string IntermediateDirectory{ hako::DefaultIntermediateDirectory };
 namespace hako
 {
     constexpr size_t WriteChunkSize = 10 * 1024; // 10 MiB
@@ -56,9 +59,9 @@ namespace hako
         }
     }
 
-    std::filesystem::path GetIntermediateDirectoryPath(Platform a_TargetPlatform, char const* a_IntermediateDirectory)
+    std::filesystem::path GetIntermediateDirectoryPath(Platform a_TargetPlatform)
     {
-        std::filesystem::path intermediateFilePath(a_IntermediateDirectory);
+        std::filesystem::path intermediateFilePath(IntermediateDirectory);
         intermediateFilePath.append(GetPlatformName(a_TargetPlatform));
 
         EnsureIntermediateDirectoryExists(intermediateFilePath);
@@ -66,12 +69,11 @@ namespace hako
         return intermediateFilePath;
     }
 
-    std::filesystem::path GetIntermediateFilePath(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    std::filesystem::path GetIntermediateFilePath(Platform a_TargetPlatform, char const* a_FilePath)
     {
-        assert(a_IntermediateDirectory);
         assert(a_FilePath);
 
-        std::filesystem::path intermediateFilePath = GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory);
+        std::filesystem::path intermediateFilePath = GetIntermediateDirectoryPath(a_TargetPlatform);
         EnsureIntermediateDirectoryExists(intermediateFilePath);
 
         char fileHashHex[Archive::FileInfo::MaxFilePathHashLength]{};
@@ -152,15 +154,14 @@ namespace hako
         }
     }
 
-    bool CreateArchive(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
+    void SetIntermediateDirectory(char const* a_IntermediateDirectory)
     {
-        if (a_IntermediateDirectory == nullptr)
-        {
-            hako::Log("No intermediate directory specified for archive creation\n");
-            assert(a_IntermediateDirectory != nullptr);
-            return false;
-        }
+        assert(a_IntermediateDirectory);
+        IntermediateDirectory = std::string(a_IntermediateDirectory);
+    }
 
+    bool CreateArchive(Platform a_TargetPlatform, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
+    {
         if (a_ArchiveName == nullptr)
         {
             hako::Log("No archive path specified for archive creation\n");
@@ -199,7 +200,7 @@ namespace hako
         filePaths.reserve(256);
 
         for (std::filesystem::directory_entry const& dirEntry :
-            std::filesystem::recursive_directory_iterator(GetIntermediateDirectoryPath(a_TargetPlatform, a_IntermediateDirectory), std::filesystem::directory_options::skip_permission_denied))
+            std::filesystem::recursive_directory_iterator(GetIntermediateDirectoryPath(a_TargetPlatform), std::filesystem::directory_options::skip_permission_denied))
         {
             if (dirEntry.is_regular_file())
             {
@@ -247,35 +248,31 @@ namespace hako
 
     /**
      * If no serializer can be found for a certain file, simply copy its content to the intermediate directory
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
      * @param a_FilePath The file to serialize
      * @param a_TargetPlatform The asset's target platform
      * @return True if the file was successfully copied
      */
-    bool DefaultSerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath)
+    bool DefaultSerializeFile(Platform a_TargetPlatform, char const* a_FilePath)
     {
-        assert(a_IntermediateDirectory);
         assert(a_FilePath);
 
         std::error_code ec;
-        std::filesystem::copy_file(a_FilePath, GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath), std::filesystem::copy_options::update_existing, ec);
+        std::filesystem::copy_file(a_FilePath, GetIntermediateFilePath(a_TargetPlatform, a_FilePath), std::filesystem::copy_options::update_existing, ec);
         return ec.value() == 0;
     }
 
     /**
      * Serialize a file into the intermediate directory
      * @param a_TargetPlatform The platform for which to serialize the file
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
      * @param a_FilePath The file to serialize
      * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
      * @return True if the file was serialized successfully
      */
-    bool SerializeFile(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_FilePath, bool a_ForceSerialization)
+    bool SerializeFile(Platform a_TargetPlatform, char const* a_FilePath, bool a_ForceSerialization)
     {
-        assert(a_IntermediateDirectory);
         assert(a_FilePath);
 
-        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
+        auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_FilePath);
 
         if (!a_ForceSerialization && std::filesystem::exists(intermediatePath))
         {
@@ -302,21 +299,19 @@ namespace hako
         }
 
         hako::Log("Using default serializer for %s\n", a_FilePath);
-        return DefaultSerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_FilePath);
+        return DefaultSerializeFile(a_TargetPlatform, a_FilePath);
     }
 
     /**
      * Serialize all files in a directory into the intermediate directory
      * @param a_TargetPlatform The platform for which to serialize the file
-     * @param a_IntermediateDirectory The intermediate directory to serialize the assets to
      * @param a_Directory The directory to serialize
      * @param a_ForceSerialization If true, serialize files regardless of whether they were changed since they were last serialized
      * @param a_FileExt When set, only serialize assets with the given file extension
      * @return True if all files were serialized successfully
      */
-    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Directory, bool a_ForceSerialization, char const* a_FileExt)
+    bool SerializeDirectory(Platform a_TargetPlatform, char const* a_Directory, bool a_ForceSerialization, char const* a_FileExt)
     {
-        assert(a_IntermediateDirectory);
         assert(a_Directory);
 
         std::string fileExtension{};
@@ -338,7 +333,7 @@ namespace hako
         {
             if (dirEntry.is_regular_file() && (a_FileExt == nullptr || dirEntry.path().extension() == fileExtension))
             {
-                if (!SerializeFile(a_TargetPlatform, a_IntermediateDirectory, dirEntry.path().generic_string().c_str(), a_ForceSerialization))
+                if (!SerializeFile(a_TargetPlatform, dirEntry.path().generic_string().c_str(), a_ForceSerialization))
                 {
                     success = false;
                 }
@@ -348,18 +343,17 @@ namespace hako
         return success;
     }
 
-    bool Serialize(Platform a_TargetPlatform, char const* a_IntermediateDirectory, char const* a_Path, bool a_ForceSerialization, char const* a_FileExt)
+    bool Serialize(Platform a_TargetPlatform, char const* a_Path, bool a_ForceSerialization, char const* a_FileExt)
     {
         assert(a_Path);
-        assert(a_IntermediateDirectory);
 
         if (std::filesystem::is_directory(a_Path))
         {
-            return SerializeDirectory(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_ForceSerialization, a_FileExt);
+            return SerializeDirectory(a_TargetPlatform, a_Path, a_ForceSerialization, a_FileExt);
         }
         else if (std::filesystem::is_regular_file(a_Path))
         {
-            return SerializeFile(a_TargetPlatform, a_IntermediateDirectory, a_Path, a_ForceSerialization);
+            return SerializeFile(a_TargetPlatform, a_Path, a_ForceSerialization);
         }
 
         return false;
@@ -382,16 +376,19 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     }
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    m_IntermediateDirectory = std::string(a_IntermediateDirectory);
-
-    std::filesystem::path const intermediatePath(a_IntermediateDirectory);
-    if (std::filesystem::exists(a_IntermediateDirectory))
+    if(a_IntermediateDirectory)
     {
-        assert(std::filesystem::is_directory(intermediatePath) && "Specified intermediate path is not a directory!");
+        SetIntermediateDirectory(a_IntermediateDirectory);
+    }
+
+    std::filesystem::path const intermediatePath(IntermediateDirectory);
+    if (std::filesystem::exists(IntermediateDirectory))
+    {
+        assert(std::filesystem::is_directory(intermediatePath) && "Intermediate path is not a directory!");
     }
     else
     {
-        hako::Log("Specified intermediate directory \"%s\" does not exist.\n", a_IntermediateDirectory);
+        hako::Log("Intermediate directory \"%s\" does not exist.\n", IntermediateDirectory.c_str());
     }
 
     m_LastWriteTimestamp = std::filesystem::last_write_time(a_ArchivePath).time_since_epoch().count();
@@ -483,7 +480,7 @@ bool Archive::ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& 
     char fileNameHash[Archive::FileInfo::MaxFilePathHashLength]{};
     HashFilePath(a_FileName, fileNameHash, sizeof(fileNameHash));
 
-    auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, m_IntermediateDirectory.c_str(), a_FileName);
+    auto const intermediatePath = GetIntermediateFilePath(m_CurrentPlatform, a_FileName);
     if (!std::filesystem::exists(intermediatePath))
     {
         return false;
