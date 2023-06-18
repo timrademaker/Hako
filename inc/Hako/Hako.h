@@ -14,7 +14,7 @@ namespace hako
     inline constexpr char DefaultIntermediateDirectory[] = "HakoIntermediate";
 
     using FileFactorySignature = std::function<std::unique_ptr<IFile>(char const* a_FilePath, FileOpenMode a_FileOpenMode)>;
-    using FilePathHash = uint64_t[2];
+    using ResourcePathHash = uint64_t[2];
 
     /**
      * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file could not be opened
@@ -67,12 +67,19 @@ namespace hako
      */
     bool ExportResource(Platform a_TargetPlatform, char const* a_ResourceName, std::vector<char> const& a_Data);
 
+    /**
+     * Get a hash for a resource path or name
+     * @param a_Path The path or name of the resource
+     * @param a_OutHash The hash for a_Path (out)
+     */
+    void GetResourcePathHash(char const* a_Path, ResourcePathHash& a_OutHash);
+
     class Archive final
     {
     public:
         struct FileInfo
         {
-            FilePathHash m_FilePathHash{};
+            ResourcePathHash m_ResourcePathHash{};
             char m_Padding[7]{};
             size_t m_Size = 0;
             size_t m_Offset = 0;
@@ -96,28 +103,36 @@ namespace hako
         Archive& operator=(Archive&&) = delete;
 
         /**
-         * Read the content of an archived file from the archive that is currently open
+         * Read the content of an archived file from the archive
          * @param a_FileName The file to read from the archive
-         * @param a_Data The vector to read data into
+         * @param a_OutData The vector to read data into
          * @return True if the file was successfully read
          */
-        bool ReadFile(char const* a_FileName, std::vector<char>& a_Data) const;
+        bool ReadFile(char const* a_FileName, std::vector<char>& a_OutData) const;
+
+        /**
+         * Read the content of an archived file from the archive
+         * @param a_ResourcePathHash The hash of the file to read from the archive
+         * @param a_OutData The vector to read data into
+         * @return True if the file was successfully read
+         */
+        bool ReadFile(ResourcePathHash const& a_ResourcePathHash, std::vector<char>& a_OutData) const;
 
     private:
         /**
          * Get the FileInfo for a specific file
-         * @param a_FileName The file to find file info for
+         * @param a_ResourcePathHash The file to find file info for
          * @return The file info, or a nullptr if not found
          */
-        FileInfo const* GetFileInfo(char const* a_FileName) const;
+        FileInfo const* GetFileInfo(ResourcePathHash const& a_ResourcePathHash) const;
 
         /**
          * Read a file outside of the archive as if it was placed inside the archive.
-         * @param a_FileName The file to read
-         * @param a_Data The vector to read data into
+         * @param a_Hash The hash of the file to read
+         * @param a_OutData The vector to read data into
          * @return True if the file was successfully read
          */
-        bool ReadFileOutsideArchive(char const* a_FileName, std::vector<char>& a_Data) const;
+        bool ReadFileOutsideArchive(ResourcePathHash const& a_Hash, std::vector<char>& a_OutData) const;
 
         /**
          * Read the content of an archived file from the archive that is currently open
