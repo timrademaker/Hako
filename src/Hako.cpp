@@ -9,6 +9,8 @@
 #include <cassert>
 #include <filesystem>
 
+#define HAKO_ASSERT(x, ...) do { bool const result = (x); if(!result) { hako::Log(__VA_ARGS__); assert(result); } } while(false)
+
 namespace
 {
     inline constexpr size_t MaxResourcePathHashLength = 33;
@@ -105,7 +107,7 @@ namespace
 
     std::filesystem::path GetIntermediateFilePath(hako::Platform a_TargetPlatform, char const* a_FilePath)
     {
-        assert(a_FilePath);
+        HAKO_ASSERT(a_FilePath, "No file path provided\n");
 
         hako::ResourcePathHash resourcePathHash{};
         hako::GetResourcePathHash(a_FilePath, resourcePathHash);
@@ -159,6 +161,8 @@ namespace hako
      */
     size_t ArchiveFile(IFile* a_Archive, char const* a_FilePath, Archive::FileInfo const& a_FileInfo)
     {
+        HAKO_ASSERT(a_FilePath && a_FilePath[0] != 0, "No file path provided!");
+
         auto const intermediateFile = s_FileFactory(a_FilePath, FileOpenMode::Read);
         if (!intermediateFile)
         {
@@ -216,18 +220,13 @@ namespace hako
 
     void SetIntermediateDirectory(char const* a_IntermediateDirectory)
     {
-        assert(a_IntermediateDirectory);
+        HAKO_ASSERT(a_IntermediateDirectory, "No intermediate directory specified\n");
         IntermediateDirectory = std::string(a_IntermediateDirectory);
     }
 
     bool CreateArchive(Platform a_TargetPlatform, char const* const a_ArchiveName, bool a_OverwriteExistingFile)
     {
-        if (a_ArchiveName == nullptr)
-        {
-            hako::Log("No archive path specified for archive creation\n");
-            assert(a_ArchiveName != nullptr);
-            return false;
-        }
+        HAKO_ASSERT(a_ArchiveName, "No archive path specified for archive creation\n");
 
         if (!a_OverwriteExistingFile && std::filesystem::exists(a_ArchiveName))
         {
@@ -237,12 +236,7 @@ namespace hako
         }
 
         std::unique_ptr<IFile> const archive = s_FileFactory(a_ArchiveName, FileOpenMode::WriteTruncate);
-        if (archive == nullptr)
-        {
-            hako::Log("Unable to open archive \"%s\" for writing!\n", a_ArchiveName);
-            assert(archive == nullptr);
-            return false;
-        }
+        HAKO_ASSERT(archive != nullptr, "Unable to open archive \"%s\" for writing!\n", a_ArchiveName);
 
         struct HashPathPair
         {
@@ -316,7 +310,7 @@ namespace hako
      */
     bool DefaultSerializeFile(Platform a_TargetPlatform, char const* a_FilePath)
     {
-        assert(a_FilePath);
+        HAKO_ASSERT(a_FilePath && a_FilePath[0] != 0, "No file path provided\n");
 
         std::error_code ec;
         std::filesystem::copy_file(a_FilePath, GetIntermediateFilePath(a_TargetPlatform, a_FilePath), std::filesystem::copy_options::update_existing, ec);
@@ -332,7 +326,7 @@ namespace hako
      */
     bool SerializeFile(Platform a_TargetPlatform, char const* a_FilePath, bool a_ForceSerialization)
     {
-        assert(a_FilePath);
+        HAKO_ASSERT(a_FilePath && a_FilePath[0] != 0, "No file path provided\n");
 
         auto const intermediatePath = GetIntermediateFilePath(a_TargetPlatform, a_FilePath);
 
@@ -374,7 +368,7 @@ namespace hako
      */
     bool SerializeDirectory(Platform a_TargetPlatform, char const* a_Directory, bool a_ForceSerialization, char const* a_FileExt)
     {
-        assert(a_Directory);
+        HAKO_ASSERT(a_Directory && a_Directory[0] != 0, "No directory provided\n");
 
         std::string fileExtension{};
         if (a_FileExt)
@@ -407,7 +401,7 @@ namespace hako
 
     bool Serialize(Platform a_TargetPlatform, char const* a_Path, bool a_ForceSerialization, char const* a_FileExt)
     {
-        assert(a_Path);
+        HAKO_ASSERT(a_Path && a_Path[0] != 0, "No path provided\n");
 
         if (std::filesystem::is_directory(a_Path))
         {
@@ -434,6 +428,8 @@ namespace hako
 
     void GetResourcePathHash(char const* a_Path, ResourcePathHash& a_OutHash)
     {
+        HAKO_ASSERT(a_Path && a_Path[0] != 0, "No path provided\n");
+
         MurmurHash3_x64_128(a_Path, strlen(a_Path), Murmur3Seed, a_OutHash);
     }
 }
@@ -442,16 +438,13 @@ using namespace hako;
 
 Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory, Platform a_Platform)
 {
+    HAKO_ASSERT(a_ArchivePath && a_ArchivePath[0] != 0, "No archive path provided\n");
+
     m_FilesInArchive.clear();
 
     // Open archive
     m_ArchiveReader = s_FileFactory(a_ArchivePath, FileOpenMode::Read);
-    if (m_ArchiveReader == nullptr)
-    {
-        hako::Log("Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
-        assert(m_ArchiveReader != nullptr);
-        return;
-    }
+    HAKO_ASSERT(m_ArchiveReader != nullptr, "Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
     if(a_IntermediateDirectory)
@@ -462,7 +455,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     std::filesystem::path const intermediatePath(IntermediateDirectory);
     if (std::filesystem::exists(IntermediateDirectory))
     {
-        assert(std::filesystem::is_directory(intermediatePath) && "Intermediate path is not a directory!");
+        HAKO_ASSERT(std::filesystem::is_directory(intermediatePath), "Intermediate path is not a directory!");
     }
     else
     {
@@ -479,19 +472,8 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     m_ArchiveReader->Read(sizeof(ArchiveHeader), 0, buffer);
 
     ArchiveHeader const header = *reinterpret_cast<ArchiveHeader*>(buffer.data());
-    if (memcmp(header.m_Magic, ArchiveMagic, MagicLength) != 0)
-    {
-        hako::Log("The archive does not seem to a Hako archive, or the file might be corrupted.\n");
-        assert(false);
-        return;
-    }
-
-    if (header.m_ArchiveVersion != ArchiveVersion)
-    {
-        hako::Log("Archive version mismatch. The archive should be rebuilt.\n");
-        assert(false);
-        return;
-    }
+    HAKO_ASSERT(memcmp(header.m_Magic, ArchiveMagic, MagicLength) == 0, "The archive does not seem to a Hako archive, or the file might be corrupted.\n");
+    HAKO_ASSERT(header.m_ArchiveVersion == ArchiveVersion, "Archive version mismatch. The archive should be rebuilt.\n");
 
     buffer.reserve(sizeof(FileInfo));
     size_t bytesRead = header.m_HeaderSize;
@@ -527,19 +509,14 @@ bool Archive::ReadFile(ResourcePathHash const& a_ResourcePathHash, std::vector<c
 #endif
 
     FileInfo const* fi = GetFileInfo(a_ResourcePathHash);
-    if (fi == nullptr)
-    {
-        hako::Log("Unable to find file with hash \"%zX%zX\" in archive.\n", a_ResourcePathHash[0], a_ResourcePathHash[1]);
-        assert(fi == nullptr);
-        return false;
-    }
+    HAKO_ASSERT(fi != nullptr, "Unable to find file with hash \"%zX%zX\" in archive.\n", a_ResourcePathHash[0], a_ResourcePathHash[1]);
 
     return LoadFileContent(*fi, a_OutData);
 }
 
 Archive::FileInfo const* Archive::GetFileInfo(ResourcePathHash const& a_ResourcePathHash) const
 {
-    assert(!m_FilesInArchive.empty());
+    HAKO_ASSERT(!m_FilesInArchive.empty(), "Archive is empty");
 
     // Find file (assumes that file names were sorted before this)
     auto const foundFile = std::lower_bound(m_FilesInArchive.begin(), m_FilesInArchive.end(), a_ResourcePathHash, [](FileInfo const& a_Lhs, ResourcePathHash const& a_Rhs)
@@ -552,10 +529,8 @@ Archive::FileInfo const* Archive::GetFileInfo(ResourcePathHash const& a_Resource
     {
         return nullptr;
     }
-    else
-    {
-        return &(*foundFile);
-    }
+
+    return &(*foundFile);
 }
 
 bool Archive::ReadFileOutsideArchive(ResourcePathHash const& a_Hash, std::vector<char>& a_OutData) const
