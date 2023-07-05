@@ -14,7 +14,28 @@ namespace hako
     inline constexpr char DefaultIntermediateDirectory[] = "HakoIntermediate";
 
     using FileFactorySignature = std::function<std::unique_ptr<IFile>(char const* a_FilePath, FileOpenMode a_FileOpenMode)>;
-    using ResourcePathHash = uint64_t[2];
+
+    struct ResourcePathHash
+    {
+        static ResourcePathHash FromString(char const* a_Hash);
+        [[nodiscard]] std::string ToString() const;
+        /**
+         * @param a_OutBuffer Buffer is expected to be (at least) MaxResourcePathHashLength in length.
+         */
+        void ToString(char* a_OutBuffer) const;
+
+        bool operator==(ResourcePathHash const& a_Rhs) const
+        {
+            return hash64[0] == a_Rhs.hash64[0] && hash64[1] == a_Rhs.hash64[1];
+        }
+
+        bool operator!=(ResourcePathHash const& a_Rhs) const
+        {
+            return !(*this == a_Rhs);
+        }
+
+        uint64_t hash64[2]{};
+    };
 
     /**
      * Set a factory function to be used for opening files. The function is expected to return a nullptr if the file could not be opened
@@ -87,12 +108,7 @@ namespace hako
         static_assert(sizeof(FileInfo) == 40 && "FileInfo size changed");
 
     public:
-        /**
-         * Open an archive for reading
-         * @param a_ArchivePath The path to the archive to open
-         * @param a_IntermediateDirectory The directory in which intermediate files are located. Overrides whatever directory was passed to SetIntermediateDirectory.
-         * @param a_Platform The current platform. Used when intermediate file reading is enabled.
-         */
+        Archive() = default;
         Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr, Platform a_Platform = Platform::Windows);
         ~Archive() = default;
 
@@ -101,6 +117,18 @@ namespace hako
         Archive& operator=(Archive const&) = delete;
         Archive(Archive&&) = delete;
         Archive& operator=(Archive&&) = delete;
+
+        /**
+         * Open an archive for reading
+         * @param a_ArchivePath The path to the archive to open
+         * @param a_IntermediateDirectory The directory in which intermediate files are located. Overrides whatever directory was passed to SetIntermediateDirectory.
+         * @param a_Platform The current platform. Used when intermediate file reading is enabled.
+         */
+        void Open(char const* a_ArchivePath, char const* a_IntermediateDirectory = nullptr, Platform a_Platform = Platform::Windows);
+        /**
+         * Close the archive
+         */
+        void Close();
 
         /**
          * Read the content of an archived file from the archive

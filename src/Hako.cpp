@@ -13,30 +13,10 @@
 
 namespace
 {
-    inline constexpr size_t MaxResourcePathHashLength = 33;
+    inline constexpr size_t MaxResourcePathHashLength = 33; // Length including null-terminator
     using ResourcePathHashStr = char[MaxResourcePathHashLength];
 
     std::string IntermediateDirectory{ hako::DefaultIntermediateDirectory };
-
-    void HashedPathToHash(std::filesystem::path const& a_Path, hako::ResourcePathHash& a_OutHash)
-    {
-        static constexpr uint8_t HashPartCount = 2;
-        static constexpr size_t PartialHashLength = (MaxResourcePathHashLength - 1) / HashPartCount;
-
-        std::string partialHash;
-        partialHash.resize(PartialHashLength + 1);
-
-        auto const path = a_Path.filename().generic_string();
-        size_t offset = 0;
-
-        for(auto& outHash : a_OutHash)
-        {
-            strncpy_s(partialHash.data(), partialHash.length(), path.c_str() + offset, PartialHashLength);
-            outHash = std::stoull(partialHash, nullptr, 16);
-
-            offset += PartialHashLength;
-        }
-    }
 
     /**
      * @return < 0 if a_Lhs < a_Rhs
@@ -45,13 +25,13 @@ namespace
      */
     int CompareHash(hako::ResourcePathHash const& a_Lhs, hako::ResourcePathHash const& a_Rhs)
     {
-        for(size_t i = 0; i < std::size(a_Lhs); ++i)
+        for(size_t i = 0; i < std::size(a_Lhs.hash64); ++i)
         {
-            if(a_Lhs[i] < a_Rhs[i])
+            if(a_Lhs.hash64[i] < a_Rhs.hash64[i])
             {
                 return -1;
             }
-            else if(a_Lhs[i] > a_Rhs[i])
+            else if(a_Lhs.hash64[i] > a_Rhs.hash64[i])
             {
                 return 1;
             }
@@ -60,17 +40,13 @@ namespace
         return 0;
     }
 
-    void GetResourcePathHashStr(hako::ResourcePathHash const& a_Hash, ResourcePathHashStr& a_OutBuffer, size_t a_OutBufferSize = sizeof(ResourcePathHashStr))
-    {
-        snprintf(a_OutBuffer, a_OutBufferSize, "%zX%zX", a_Hash[0], a_Hash[1]);
-    }
-
     void GetResourcePathHashStr(char const* a_FilePath, ResourcePathHashStr& a_OutBuffer, size_t a_OutBufferSize = sizeof(ResourcePathHashStr))
     {
+        assert(a_OutBufferSize >= sizeof(ResourcePathHashStr) && "Hash won't fit into buffer");
+
         hako::ResourcePathHash hash{};
         hako::GetResourcePathHash(a_FilePath, hash);
-
-        GetResourcePathHashStr(hash, a_OutBuffer, a_OutBufferSize);
+        hash.ToString(a_OutBuffer);
     }
 
     void EnsureIntermediateDirectoryExists(std::filesystem::path const& a_Directory)
@@ -99,7 +75,7 @@ namespace
         EnsureIntermediateDirectoryExists(intermediateFilePath);
 
         ResourcePathHashStr hashStr{};
-        GetResourcePathHashStr(a_Hash, hashStr);
+        a_Hash.ToString(hashStr);
         intermediateFilePath.append(hashStr);
 
         return intermediateFilePath;
@@ -140,6 +116,41 @@ namespace hako
 
     /** The factory function to use for file IO */
     FileFactorySignature s_FileFactory = hako::HakoFileFactory;
+
+    std::string ResourcePathHash::ToString() const
+    {
+        ResourcePathHashStr buffer;
+        ToString(buffer);
+        return { buffer };
+    }
+
+    void ResourcePathHash::ToString(char* a_OutBuffer) const
+    {
+        snprintf(a_OutBuffer, MaxResourcePathHashLength, "%zX%zX", hash64[0], hash64[1]);
+    }
+
+    ResourcePathHash ResourcePathHash::FromString(char const* a_Hash)
+    {
+        static constexpr uint8_t HashPartCount = 2;
+        static constexpr size_t PartialHashLength = (MaxResourcePathHashLength - 1) / HashPartCount;
+
+        std::string partialHash;
+        partialHash.resize(PartialHashLength + 1);
+
+        auto const path = a_Hash;
+        size_t offset = 0;
+
+        ResourcePathHash hash;
+        for (auto& outHash : hash.hash64)
+        {
+            strncpy_s(partialHash.data(), partialHash.length(), path + offset, PartialHashLength);
+            outHash = std::stoull(partialHash, nullptr, 16);
+
+            offset += PartialHashLength;
+        }
+
+        return hash;
+    }
 
     void SetFileIO(FileFactorySignature a_FileFactory)
     {
@@ -242,9 +253,8 @@ namespace hako
         {
             HashPathPair(std::filesystem::path const& a_FilePath)
                 : m_FilePath(a_FilePath.generic_string())
-            {
-                HashedPathToHash(a_FilePath, m_ResourcePathHash);
-            }
+            , m_ResourcePathHash(ResourcePathHash::FromString(a_FilePath.filename().generic_string().c_str()))
+            { }
 
             // Full file path (with hashed file name)
             std::string m_FilePath{};
@@ -288,7 +298,7 @@ namespace hako
             std::unique_ptr<IFile> currentFile = s_FileFactory(filePaths[fileIndex].m_FilePath.c_str(), FileOpenMode::Read);
 
             Archive::FileInfo fi{};
-            std::copy_n(filePaths[fileIndex].m_ResourcePathHash, std::size(fi.m_ResourcePathHash), fi.m_ResourcePathHash);
+            fi.m_ResourcePathHash = filePaths[fileIndex].m_ResourcePathHash;
             fi.m_Offset = sizeof(ArchiveHeader) + sizeof(Archive::FileInfo) * filePaths.size() + totalFileSize;
 
             fi.m_Size = ArchiveFile(archive.get(), filePaths[fileIndex].m_FilePath.c_str(), fi);
@@ -430,7 +440,7 @@ namespace hako
     {
         HAKO_ASSERT(a_Path && a_Path[0] != 0, "No path provided\n");
 
-        MurmurHash3_x64_128(a_Path, strlen(a_Path), Murmur3Seed, a_OutHash);
+        MurmurHash3_x64_128(a_Path, strlen(a_Path), Murmur3Seed, a_OutHash.hash64);
     }
 }
 
@@ -438,6 +448,13 @@ using namespace hako;
 
 Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory, Platform a_Platform)
 {
+    Open(a_ArchivePath, a_IntermediateDirectory, a_Platform);
+}
+
+void Archive::Open(char const* a_ArchivePath, char const* a_IntermediateDirectory, Platform a_Platform)
+{
+    HAKO_ASSERT(m_ArchiveReader == nullptr, "An archive has already been opened. Close it before opening another one.");
+
     HAKO_ASSERT(a_ArchivePath && a_ArchivePath[0] != 0, "No archive path provided\n");
 
     m_FilesInArchive.clear();
@@ -447,7 +464,7 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     HAKO_ASSERT(m_ArchiveReader != nullptr, "Unable to open archive \"%s\" for reading!\n", a_ArchivePath);
 
 #ifdef HAKO_READ_OUTSIDE_OF_ARCHIVE
-    if(a_IntermediateDirectory)
+    if (a_IntermediateDirectory)
     {
         SetIntermediateDirectory(a_IntermediateDirectory);
     }
@@ -490,6 +507,14 @@ Archive::Archive(char const* a_ArchivePath, char const* a_IntermediateDirectory,
     }
 }
 
+void Archive::Close()
+{
+    m_FilesInArchive.clear();
+    m_LastWriteTimestamp = 0;
+    m_ArchiveReader = nullptr;
+
+}
+
 bool Archive::ReadFile(char const* a_FileName, std::vector<char>& a_OutData) const
 {
     ResourcePathHash hash;
@@ -509,7 +534,7 @@ bool Archive::ReadFile(ResourcePathHash const& a_ResourcePathHash, std::vector<c
 #endif
 
     FileInfo const* fi = GetFileInfo(a_ResourcePathHash);
-    HAKO_ASSERT(fi != nullptr, "Unable to find file with hash \"%zX%zX\" in archive.\n", a_ResourcePathHash[0], a_ResourcePathHash[1]);
+    HAKO_ASSERT(fi != nullptr, "Unable to find file with hash \"%s\" in archive.\n", a_ResourcePathHash.ToString().c_str());
 
     return LoadFileContent(*fi, a_OutData);
 }
