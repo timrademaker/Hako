@@ -550,7 +550,7 @@ Archive::FileInfo const* Archive::GetFileInfo(ResourcePathHash const& a_Resource
         }
     );
 
-    if (foundFile == m_FilesInArchive.end())
+    if (foundFile == m_FilesInArchive.end() || foundFile->m_ResourcePathHash != a_ResourcePathHash)
     {
         return nullptr;
     }
