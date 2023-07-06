@@ -129,6 +129,26 @@ namespace hako
         snprintf(a_OutBuffer, MaxResourcePathHashLength, "%zX%zX", hash64[0], hash64[1]);
     }
 
+    bool ResourcePathHash::operator<(ResourcePathHash const& a_Rhs) const
+    {
+        return CompareHash(*this, a_Rhs) < 0;
+    }
+
+    bool ResourcePathHash::operator<=(ResourcePathHash const& a_Rhs) const
+    {
+        return CompareHash(*this, a_Rhs) <= 0;
+    }
+
+    bool ResourcePathHash::operator>(ResourcePathHash const& a_Rhs) const
+    {
+        return CompareHash(*this, a_Rhs) > 0;
+    }
+
+    bool ResourcePathHash::operator>=(ResourcePathHash const& a_Rhs) const
+    {
+        return CompareHash(*this, a_Rhs) >= 0;
+    }
+
     ResourcePathHash ResourcePathHash::FromString(char const* a_Hash)
     {
         static constexpr uint8_t HashPartCount = 2;

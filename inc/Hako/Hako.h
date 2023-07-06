@@ -34,6 +34,11 @@ namespace hako
             return !(*this == a_Rhs);
         }
 
+        bool operator<(ResourcePathHash const& a_Rhs) const;
+        bool operator<=(ResourcePathHash const& a_Rhs) const;
+        bool operator>(ResourcePathHash const& a_Rhs) const;
+        bool operator>=(ResourcePathHash const& a_Rhs) const;
+
         uint64_t hash64[2]{};
     };
 
