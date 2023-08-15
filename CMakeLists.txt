@@ -25,12 +25,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 
 # Set headers for Hako
 set(HEADERS
-    "inc/Hako/Hako.h"
-    "inc/Hako/HakoCmd.h"
-    "inc/Hako/HakoFile.h"
-    "inc/Hako/HakoPlatforms.h"
-    "inc/Hako/IFile.h"
-    "inc/Hako/Serializer.h"
+    inc/Hako/Hako.h
+    inc/Hako/HakoCmd.h
+    inc/Hako/HakoFile.h
+    inc/Hako/HakoPlatforms.h
+    inc/Hako/IFile.h
+    inc/Hako/Serializer.h
     private/HakoLog.h
     private/SerializerList.h
     private/MurmurHash3.h
